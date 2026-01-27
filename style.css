@@ -1,0 +1,1337 @@
+:root {
+    --bg-color: #f0f2f5;
+    --sidebar-bg: #ffffff;
+    --primary-color: #3b82f6; 
+    --text-color: #333;
+    --border-radius: 12px;
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+header {
+    background: white;
+    padding: 15px 30px;
+    display: flex;
+    align-items: center;
+    box-shadow: var(--shadow);
+    z-index: 10;
+}
+.logo {
+    font-weight: 700;
+    font-size: 1.2rem;
+    margin-right: 40px;
+    color: var(--primary-color);
+}
+.nav-btn {
+    border: none;
+    background: none;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-weight: 500;
+    color: #666;
+}
+.nav-btn.active {
+    color: var(--primary-color);
+    background: #ebf5ff;
+    border-radius: 20px;
+}
+.container {
+    display: grid;
+    grid-template-columns: 250px 1fr 300px;
+    gap: 20px;
+    padding: 20px;
+    height: 100%;
+    overflow: hidden;
+}
+.sidebar, .details-panel {
+    background: var(--sidebar-bg);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    overflow-y: auto;
+}
+.sidebar h3 {
+    margin-top: 0;
+    font-size: 1rem;
+    color: #444;
+}
+.sidebar ul {
+    list-style: none;
+    padding: 0;
+}
+.sidebar li {
+    padding: 10px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.2s;
+    color: #555;
+    font-size: 0.9rem;
+}
+.sidebar li:hover, .sidebar li.active {
+    background-color: #ebf5ff;
+    color: var(--primary-color);
+    font-weight: 600;
+}
+.simulation-arena {
+    background: var(--sidebar-bg);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+}
+.arena-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.process-log {
+    position: absolute;
+    top: 10px;         
+    left: 0;
+    width: 100%;
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: #d97706;     
+    background-color: rgba(255, 255, 255, 0.9); 
+    padding: 5px 0;
+    z-index: 10;
+}
+.visualizer {
+    display: flex; 
+    flex-direction: row;
+    align-items: flex-end; 
+    justify-content: center;
+    position: relative; 
+    min-height: 400px;  
+    height: 500px;     
+    width: 100%;
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;   
+    padding: 20px;    
+}
+.tree-level {
+    display: flex;
+    justify-content: center;
+    gap: 30px; 
+    margin-bottom: 40px; 
+    width: 100%;
+    z-index: 2; 
+    position: relative;
+}
+.tree-node {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: white;
+    border: 2px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    position: relative;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+#tree-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0; 
+}
+.bar {
+    width: 25px; 
+    margin: 0 2px; 
+    background-color: #3b82f6; 
+    color: white; 
+    text-align: center;
+}
+.bar.compare { background-color: #f87171; } 
+.bar.swap { background-color: #34d399; } 
+.bar.sorted { background-color: #a78bfa; }
+pre {
+    background: #f4f4f5;
+    padding: 10px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+}
+.tag {
+    background: #eee;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+.btn-warning {
+    background-color: #e67e22;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.btn-warning:hover {
+    background-color: #d35400; 
+}
+.btn-warning:disabled {
+    background-color: #95a5a6; /* Màu xám khi bị disable */
+    cursor: not-allowed;
+}
+.btn-warning.active-pause {
+    background-color: #27ae60 !important;
+    animation: pulse 1s infinite;
+}
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+input[type=range] {
+    cursor: pointer;
+}
+.legend-box {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 15px;
+    font-size: 14px;
+    font-weight: 500;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.color-box {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+}
+.tree-level {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 20px;
+    width: 100%;
+}
+.tree-node {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #e5e7eb; 
+    border: 2px solid #9ca3af;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 12px;
+    color: #374151;
+    transition: all 0.3s ease;
+}
+.tree-node.active {
+    background-color: #10b981; 
+    color: white;
+    transform: scale(1.2);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+.tree-node.highlight {
+    background-color: #facc15; 
+}
+.pd-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 25px; 
+    padding: 20px;
+    width: 100%;
+}
+.pd-row-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+.pd-label-box {
+    width: 80px;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+.pd-label-sub {
+    font-size: 0.75rem;
+    color: #b2bec3; 
+    font-weight: normal;
+}
+.pd-grid {
+    display: flex;
+    gap: 6px; 
+}
+.pd-cell {
+    width: 50px;
+    height: 50px;
+    border: 2px solid #b2bec3; 
+    border-radius: 8px; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    font-size: 1.1rem;
+    background-color: #2d3436; 
+    color: #dfe6e9;
+    transition: all 0.3s ease; 
+    position: relative;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+.pd-cell.active {
+    transform: scale(1.15);
+    z-index: 10;
+}
+.hl-red {
+    background-color: #ff7675 !important;
+    border-color: #d63031 !important;
+    color: white !important;
+    transform: scale(1.15);
+    box-shadow: 0 0 10px rgba(255, 118, 117, 0.6);
+}
+.hl-blue {
+    background-color: #0984e3 !important;
+    border-color: #0984e3 !important;
+    color: white !important;
+    transform: scale(1.15);
+    box-shadow: 0 0 10px rgba(9, 132, 227, 0.6);
+}
+.hl-gold {
+    background-color: #fdcb6e !important;
+    border-color: #e17055 !important;
+    color: #2d3436 !important;
+    transform: scale(1.15);
+    box-shadow: 0 0 10px rgba(253, 203, 110, 0.6);
+}
+.hl-green {
+    background-color: #00b894 !important;
+    border-color: #00b894 !important;
+    color: white !important;
+    transform: scale(1.15);
+    box-shadow: 0 0 10px rgba(0, 184, 148, 0.6);
+}
+#ps-math, #da-math {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 16px;
+    font-weight: 600;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+}
+.sieve-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr); 
+    gap: 8px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+.sieve-node {
+    width: 40px;
+    height: 40px;
+    background-color: #e5e7eb; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+.sieve-node.prime { background-color: #10b981 !important; color: white; } /* Xanh lá */
+.sieve-node.current { background-color: #3b82f6 !important; color: white; transform: scale(1.1); } /* Xanh dương */
+.sieve-node.not-prime { background-color: #ef4444 !important; color: white; opacity: 0.5; } /* Đỏ nhạt */
+.bit-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+}
+.bit-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+}
+.bit-label {
+    width: 100px;
+    text-align: right;
+    font-weight: bold;
+    color: #dfe6e9;
+    margin-right: 15px;
+}
+.bit-cell {
+    width: 50px;
+    height: 60px; 
+    border: 2px solid #636e72;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    position: relative;
+    background-color: #2d3436;
+    color: white;
+    transition: all 0.3s ease;
+}
+.bit-idx {
+    font-size: 10px;
+    color: #b2bec3;
+    margin-top: 2px;
+}
+.bit-cell.highlight { background-color: #10b981 !important; border-color: #10b981; transform: scale(1.1); } /* Xanh lá */
+.bit-cell.path { background-color: #f59e0b !important; border-color: #f59e0b; } /* Cam */
+.dsu-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+    width: 100%;
+}
+.dsu-nodes-area {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.dsu-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+.dsu-circle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #2d3436;
+    border: 3px solid #636e72;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-weight: bold;
+    font-size: 1.2rem;
+    transition: all 0.4s ease;
+    position: relative;
+    z-index: 2;
+}
+.dsu-parent-box {
+    width: 40px;
+    height: 30px;
+    background-color: #dfe6e9;
+    color: #2d3436;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    border: 1px solid #b2bec3;
+}
+.dsu-size-label {
+    font-size: 11px;
+    color: #fd79a8; 
+    font-weight: bold;
+    margin-top: 4px;
+    transition: all 0.3s;
+}
+.size-up {
+    color: #00b894 !important;
+    transform: scale(1.3);
+}
+.dsu-circle.active { border-color: #f59e0b; box-shadow: 0 0 10px #f59e0b; transform: scale(1.15); }
+.dsu-circle.root { border-color: #10b981; background-color: #10b981; } /* Gốc màu xanh lá */
+.edge-queue {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+.edge-item {
+    padding: 5px 10px;
+    background: #2d3436;
+    border-radius: 4px;
+    color: #b2bec3;
+    font-size: 0.9rem;
+}
+.edge-item.current {
+    background: #f59e0b;
+    color: #2d3436;
+    font-weight: bold;
+}
+.tarjan-layout {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    gap: 20px;
+}
+.graph-area {
+    position: relative;
+    width: 60%;
+    height: 400px;
+    border: 2px solid #636e72;
+    border-radius: 8px;
+    background: #2d3436;
+}
+.graph-node {
+    width: 40px;
+    height: 40px;
+    background-color: #dfe6e9;
+    border-radius: 50%;
+    position: absolute;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    color: #2d3436;
+    z-index: 2;
+    border: 2px solid #b2bec3;
+    transition: background-color 0.3s;
+}
+.node-label {
+    position: absolute;
+    top: -25px;
+    left: -10px;
+    background: rgba(0,0,0,0.7);
+    color: #fab1a0;
+    font-size: 10px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+.graph-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+}
+.stack-viz {
+    width: 20%;
+    border: 2px solid #b2bec3;
+    border-top: none; 
+    min-height: 200px;
+    display: flex;
+    flex-direction: column-reverse; 
+    align-items: center;
+    padding: 10px;
+    background: rgba(255,255,255,0.05);
+}
+.stack-item {
+    width: 80%;
+    height: 30px;
+    background-color: #3b82f6;
+    color: white;
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    border-radius: 4px;
+    animation: slideIn 0.3s ease;
+}
+@keyframes slideIn {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+.kruskal-layout {
+    display: flex;
+    gap: 15px;
+    width: 100%;
+    height: 500px;
+}
+.kruskal-graph {
+    position: relative;
+    width: 70%;
+    height: 100%;
+    background: #2d3436;
+    border: 1px solid #636e72;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.kruskal-sidebar {
+    width: 30%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.edge-list {
+    flex: 1;
+    overflow-y: auto;
+    background: #2d3436;
+    border: 1px solid #636e72;
+    border-radius: 5px;
+    padding: 5px;
+}
+.edge-card {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: #dfe6e9;
+    color: #2d3436;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: default;
+    transition: all 0.3s;
+}
+.edge-card.active { background: #3b82f6; color: white; transform: scale(1.02); }
+.edge-card.accepted { background: #10b981; color: white; order: -1; } /* Đẩy lên đầu nếu thích */
+.edge-card.rejected { background: #ef4444; color: white; opacity: 0.5; text-decoration: line-through; }
+.weight-label {
+    fill: #fab1a0;
+    font-size: 14px;
+    font-weight: bold;
+    paint-order: stroke;
+    stroke: #2d3436;
+    stroke-width: 3px;
+}
+.dijkstra-layout {
+    display: flex;
+    gap: 15px;
+    width: 100%;
+    height: 500px;
+}
+.dijkstra-sidebar {
+    width: 35%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.dist-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #2d3436;
+    border-radius: 5px;
+    overflow: hidden;
+    font-size: 13px;
+}
+.dist-table th, .dist-table td {
+    padding: 8px;
+    text-align: center;
+    border-bottom: 1px solid #636e72;
+    color: #dfe6e9;
+}
+.dist-table th {
+    background: #0984e3;
+    color: white;
+}
+.dist-row.active { background-color: #f59e0b; color: #2d3436; font-weight: bold; }
+.dist-row.selected { background-color: #3b82f6; color: white; }
+.dist-row.done { background-color: #10b981; color: white; }
+.dj-weight {
+    fill: #fab1a0;
+    font-size: 14px;
+    font-weight: bold;
+    paint-order: stroke;
+    stroke: #2d3436;
+    stroke-width: 3px;
+}
+#lca-select-u, #lca-select-v {
+    background-color: #636e72; 
+    color: white;              
+    border: 1px solid #b2bec3; 
+    border-radius: 4px;        
+    padding: 6px 10px;
+    font-size: 14px;
+    outline: none;            
+    cursor: pointer;
+    transition: all 0.3s ease; 
+    margin-top: 5px;
+    width: 100%;             
+}
+#lca-select-u:hover, #lca-select-v:hover {
+    border-color: #74b9ff; 
+    background-color: #555e61;
+}
+#lca-select-u:focus, #lca-select-v:focus {
+    border-color: #0984e3; /* Viền xanh dương đậm */
+    box-shadow: 0 0 0 3px rgba(9, 132, 227, 0.2); /* Glow nhẹ */
+}
+#lca-select-u option, #lca-select-v option {
+    background-color: #2d3436; /* Nền tối cho menu */
+    color: white;
+    padding: 10px;
+}
+#lca-info::-webkit-scrollbar {
+    width: 6px;
+}
+#lca-info::-webkit-scrollbar-track {
+    background: #2d3436; 
+}
+#lca-info::-webkit-scrollbar-thumb {
+    background: #636e72; 
+    border-radius: 3px;
+}
+#lca-info::-webkit-scrollbar-thumb:hover {
+    background: #b2bec3; 
+}
+.dp-table {
+    border-collapse: collapse;
+}
+
+.dp-table td {
+    border: 1px solid #ccc;
+    width: 35px;
+    height: 35px;
+    text-align: center;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+.dag-node {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #718ab2;
+    color: white;
+    text-align: center;
+    line-height: 18px;
+    font-size: 12px;
+    padding-top: 5px;
+    border: 2px solid #475569;
+    transition: 0.3s;
+}
+/* ======================================================
+   NEW LIS STYLING (Hybrid: Chart + Grid)
+   ====================================================== */
+
+/* Khung bao ngoài */
+.lis-layout {
+    display: flex;
+    flex-direction: column;
+    height: 540px;
+    width: 100%;
+    gap: 15px;
+    padding: 10px;
+}
+
+/* 1. KHU VỰC BIỂU ĐỒ CỘT (Phần trên) */
+.lis-chart-area {
+    flex: 1.5; /* Chiếm 60% chiều cao */
+    display: flex;
+    align-items: flex-end; /* Căn đáy */
+    justify-content: center;
+    gap: 4px;
+    background: #2d3436;
+    border: 1px solid #636e72;
+    border-radius: 8px;
+    padding: 20px 10px 0 10px;
+    border-bottom: 2px solid #b2bec3; /* Tạo đường đất */
+}
+
+.lis-bar {
+    width: 30px;
+    background-color: #60a5fa; /* Màu xanh mặc định */
+    transition: all 0.3s ease;
+    border-radius: 4px 4px 0 0;
+    position: relative;
+}
+
+/* Số hiển thị trên đầu cột */
+.lis-bar-label {
+    position: absolute;
+    top: -20px;
+    width: 100%;
+    text-align: center;
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+/* 2. KHU VỰC BẢNG DP (Phần dưới - Giống Sàng nguyên tố) */
+.lis-table-area {
+    flex: 1; /* Chiếm 40% chiều cao */
+    background: #2d3436;
+    border: 1px solid #636e72;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.lis-table-title {
+    color: #fdcb6e;
+    font-size: 14px;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+/* Grid chứa các ô vuông */
+.lis-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px;
+}
+
+/* Ô vuông DP */
+.lis-node {
+    width: 45px;
+    height: 45px;
+    background: #2d3436;
+    border: 1px solid #636e72;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-family: 'Consolas', monospace;
+    transition: all 0.2s;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+}
+
+.lis-node span.idx {
+    font-size: 8px;
+    color: #b2bec3;
+    margin-bottom: 2px;
+}
+
+.lis-node span.val {
+    font-size: 16px;
+    font-weight: bold;
+    color: #74b9ff; /* Màu số DP */
+}
+
+/* 3. MÀU SẮC TRẠNG THÁI (Dùng chung cho cả Cột và Bảng) */
+.active-i {
+    background-color: #0984e3 !important; /* Xanh dương đậm (Đang xét) */
+    border-color: #74b9ff !important;
+    box-shadow: 0 0 10px #0984e3;
+    color: white !important;
+}
+
+.active-j {
+    background-color: #e17055 !important; /* Cam (Đang so sánh) */
+    border-color: #fab1a0 !important;
+}
+
+.success-update {
+    background-color: #00b894 !important; /* Xanh lá (Cập nhật thành công) */
+    transform: scale(1.1);
+}
+
+.result-trace {
+    background-color: #fdcb6e !important; /* Vàng (Kết quả cuối) */
+    color: #2d3436 !important;
+    border-color: white !important;
+}
+
+/* =========================================
+   FROG JUMP STYLING
+   ========================================= */
+.frog-layout {
+    display: flex;
+    flex-direction: column;
+    height: 550px;
+    width: 100%;
+    gap: 10px;
+}
+
+.frog-chart-area {
+    flex: 2;
+    background: #dfe6e9; /* Nền sáng hơn chút giống bầu trời */
+    border: 1px solid #b2bec3;
+    border-radius: 8px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 15px; /* Khoảng cách giữa các cột rộng ra */
+    padding-bottom: 0;
+    position: relative; /* Để con ếch tuyệt đối theo khung này */
+    overflow: hidden;
+}
+
+/* CỘT ĐÁ (To và Rõ) - Đã chỉnh số vào trong */
+.frog-col-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 50px; /* Cột rộng 50px */
+    justify-content: flex-end; /* Căn đáy để cột mọc từ dưới lên */
+    height: 100%; /* Chiếm full chiều cao khu vực chứa */
+}
+
+.frog-bar {
+    width: 100%;
+    /* background: #636e72;  Màu gốc */
+    background: linear-gradient(to bottom, #7f8fa6, #636e72); /* Gradient nhẹ cho giống đá hơn */
+    border-radius: 4px 4px 0 0;
+    border: 2px solid #2d3436;
+    border-bottom: none;
+    
+    /* --- CẤU HÌNH MỚI ĐỂ CHỨA SỐ BÊN TRONG --- */
+    display: flex;           /* Biến cột thành flex container */
+    justify-content: center; /* Căn giữa theo chiều ngang */
+    align-items: flex-start; /* Căn lên trên đỉnh theo chiều dọc */
+    padding-top: 8px;        /* Cách đỉnh một chút cho đẹp */
+    /* ----------------------------------------- */
+    
+    position: relative;
+    transition: all 0.3s ease;
+    box-shadow: inset 0 -5px 10px rgba(0,0,0,0.3); /* Hiệu ứng khối 3D nhẹ */
+}
+
+.frog-bar-val {
+    /* --- CẤU HÌNH MỚI CHO SỐ --- */
+    /* Không dùng position absolute nữa */
+    font-weight: bold;
+    color: #ffffff;     /* Chữ màu trắng để nổi trên nền đá xám */
+    font-size: 15px;    /* To rõ hơn chút */
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5); /* Bóng chữ cho dễ đọc */
+    z-index: 2; /* Đảm bảo nằm trên nền màu khi active */
+    /* --------------------------- */
+}
+
+.frog-idx {
+    margin-top: 5px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #2d3436;
+    text-align: center;
+}
+/* ICON CON ẾCH */
+.frog-icon {
+    position: absolute;
+    font-size: 30px; /* Ếch to */
+    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Hiệu ứng nhảy */
+    z-index: 10;
+}
+
+/* BẢNG DP */
+.frog-table-area {
+    flex: 1;
+    background: #2d3436;
+    padding: 10px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.frog-grid {
+    display: flex;
+    gap: 5px;
+    margin-top: 5px;
+}
+
+.frog-dp-box {
+    width: 45px;
+    height: 45px;
+    background: #353b48;
+    border: 1px solid #7f8fa6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    border-radius: 4px;
+}
+.frog-dp-box .idx { font-size: 10px; color: #bbb; }
+.frog-dp-box .val { font-size: 14px; font-weight: bold; color: #74b9ff; }
+
+.frog-log {
+    height: 60px;
+    background: #2d3436;
+    color: #fdcb6e;
+    padding: 10px;
+    border-radius: 8px;
+    font-family: monospace;
+    overflow-y: auto;
+    border: 1px solid #636e72;
+}
+
+/* TRẠNG THÁI MÀU SẮC */
+.active-frog { background-color: #0984e3 !important; border-color: #74b9ff !important; color: white; }
+.compare-frog { background-color: #e17055 !important; }
+.success-frog { background-color: #00b894 !important; transform: scale(1.1); }
+.trace-frog { background-color: #fdcb6e !important; color: #2d3436 !important; border-color: #e17055 !important; }
+
+/* =========================================
+   DP ON DAG STYLING (Layered Layout)
+   ========================================= */
+.dag-layout {
+    position: relative;
+    width: 100%;
+    height: 550px;
+    background: #2d3436; /* Nền tối */
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Khu vực vẽ dây nối (Nằm dưới các node) */
+.dag-svg-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1; /* Dưới cùng */
+    pointer-events: none; /* Không chặn click chuột */
+}
+
+/* Node hình tròn */
+.dag-node {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    background: #636e72;
+    border: 2px solid #b2bec3;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    z-index: 2; /* Nằm trên dây */
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.dag-node span.idx {
+    font-size: 10px;
+    color: #dfe6e9;
+    font-weight: bold;
+}
+
+.dag-node span.val {
+    font-size: 14px;
+    font-weight: bold;
+    color: #74b9ff; /* Màu số DP */
+}
+
+/* Log thông tin */
+.dag-info-box {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    height: 80px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fdcb6e;
+    padding: 10px;
+    border-radius: 8px;
+    font-family: monospace;
+    overflow-y: auto;
+    z-index: 3;
+    border: 1px solid #636e72;
+}
+
+/* HIỆU ỨNG MÀU SẮC */
+.dag-active {
+    background-color: #0984e3 !important; /* Đang xét */
+    border-color: #74b9ff !important;
+    box-shadow: 0 0 15px #0984e3;
+    transform: scale(1.1);
+}
+
+.dag-neighbor {
+    background-color: #e17055 !important; /* Hàng xóm */
+    border-color: #fab1a0 !important;
+}
+
+.dag-finished {
+    background-color: #00b894 !important; /* Đã xong */
+    border-color: #55efc4 !important;
+}
+
+.dag-path {
+    background-color: #fdcb6e !important; /* Kết quả */
+    color: #2d3436 !important;
+    border-color: #fff !important;
+}
+
+/* =========================================
+   2D DP TABLE STYLING (LCS & KNAPSACK)
+   ========================================= */
+
+/* Khung bao ngoài */
+.dp-2d-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* QUAN TRỌNG: Bắt buộc mọi thứ phải vào giữa */
+    width: 100%;
+    gap: 10px;
+    padding-top: 10px;
+}
+/* Khu vực bảng (Scroll được nếu quá lớn) */
+.dp-matrix-area {
+    flex: 3;
+    background: #2d3436;
+    border: 1px solid #636e72;
+    border-radius: 8px;
+    padding: 15px; /* Giảm padding một chút */
+    overflow: auto;
+    display: flex;
+    justify-content: center; /* Căn giữa bảng vào giữa khung */
+    align-items: flex-start;
+}
+
+/* Ô dữ liệu (Cell) */
+.dp-cell {
+    width: 40px;
+    height: 40px;
+    background: #353b48;
+    border: 1px solid #57606f;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #dfe6e9;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+/* Ô tiêu đề (Header: Index, Char, Item Name) */
+.dp-header-cell {
+    background: #2d3436;
+    border: none;
+    color: #fdcb6e; /* Màu vàng nhạt */
+    font-weight: bold;
+    font-size: 13px;
+}
+
+/* Item List (Cho Knapsack - hiển thị danh sách đồ vật bên cạnh) */
+.knap-items-panel {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    padding: 8px 15px;
+    background: #dfe6e9;
+    border-radius: 6px;
+    
+    /* MẤU CHỐT: Co lại vừa khít */
+    width: fit-content; 
+    max-width: 90%;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* 3. KHUNG CHỨA BẢNG (Cái ô to nhất): Co lại ôm sát bảng */
+.dp-matrix-area {
+    /* Bỏ flex: 3 đi để nó không bị ép phình to ra */
+    flex: none; 
+    
+    /* MẤU CHỐT: Chiều rộng và cao co lại vừa khít nội dung bên trong */
+    width: fit-content; 
+    height: auto;       
+    
+    /* Chỉ khi bảng quá dài mới hiện thanh cuộn */
+    max-width: 95%;     
+    max-height: 400px; 
+    overflow: auto;
+    
+    background: #2d3436;
+    border: 1px solid #636e72;
+    border-radius: 8px;
+    padding: 10px; /* Padding nhỏ để bảng không sát lề */
+    
+    /* Căn giữa bảng bên trong khung (dự phòng) */
+    display: flex;
+    justify-content: center;
+}
+
+/* Giữ nguyên các class ô nhỏ */
+.knap-item-box {
+    background: #636e72;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    border: 1px solid #2d3436;
+}
+
+.dp-matrix {
+    display: grid;
+    gap: 2px;
+    /* grid-template-columns set by JS */
+}
+/* Class riêng cho ô nhỏ của Knapsack */
+.dp-cell-small {
+    width: 32px;  /* Nhỏ hơn ô mặc định (40px) */
+    height: 32px;
+    background: #353b48;
+    border: 1px solid #57606f;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #dfe6e9;
+    font-size: 12px; /* Chữ nhỏ lại cho vừa ô */
+    transition: all 0.2s;
+}
+
+/* Header nhỏ */
+.dp-header-small {
+    background: #2d3436;
+    border: none;
+    color: #fdcb6e;
+    font-weight: bold;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+/* TRẠNG THÁI MÀU SẮC */
+.dp-active {
+    background-color: #0984e3 !important; /* Xanh dương (Đang xét) */
+    transform: scale(1.1);
+    border-color: #74b9ff;
+    z-index: 2;
+    box-shadow: 0 0 10px rgba(9, 132, 227, 0.5);
+}
+
+.dp-compare {
+    background-color: #e17055 !important; /* Cam (So sánh) */
+}
+
+.dp-match {
+    background-color: #00b894 !important; /* Xanh lá (Khớp / Chọn) */
+}
+
+.dp-result {
+    background-color: #fdcb6e !important; /* Vàng (Kết quả cuối/Đường đi) */
+    color: #2d3436 !important;
+    border-color: #fff;
+}
+/* =========================================
+   NEW SEGMENT TREE LAYOUT (FLEXBOX)
+   ========================================= */
+
+/* 1. Khung bao tổng thể: Xếp theo chiều dọc */
+.st-container-wrapper {
+    display: flex;
+    flex-direction: column; /* Xếp dọc: Cây trên, Log dưới */
+    align-items: center;    /* Căn giữa tất cả theo trục dọc */
+    width: 100%;
+    gap: 15px;              /* Khoảng cách giữa Cây và Log */
+}
+
+/* 2. Khu vực vẽ cây (Canvas) */
+.st-canvas {
+    position: relative;
+    width: 100%;
+    height: 380px;          /* Chiều cao cố định cho cây */
+    background: #2d3436;
+    border-radius: 8px;
+    border: 1px solid #636e72;
+    overflow: hidden;       /* Cắt bớt nếu tràn */
+}
+
+/* 3. Khu vực Log (Bảng chữ chạy) - Nằm riêng bên dưới */
+.st-log-box {
+    width: 60%;             /* Chiếm 60% chiều rộng màn hình cho gọn */
+    min-width: 300px;
+    background: #dfe6e9;
+    color: #2d3436;
+    padding: 10px 20px;
+    border-radius: 50px;    /* Bo tròn như viên thuốc */
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 14px;
+    border: 2px solid #b2bec3;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: all 0.3s;
+}
+
+/* --- CÁC THÀNH PHẦN CỦA CÂY --- */
+
+/* Node hình tròn */
+.st-node {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    background: #2d3436;
+    border: 2px solid #74b9ff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 13px;
+    z-index: 5;
+    transition: transform 0.3s, background-color 0.3s;
+    box-shadow: 0 3px 5px rgba(0,0,0,0.2);
+}
+
+/* Nhãn phạm vi [L, R] nằm dưới node */
+.st-range {
+    position: absolute;
+    top: 42px; /* Ngay dưới node 40px */
+    left: 50%;
+    transform: translateX(-50%); /* Căn giữa so với node */
+    background: #636e72;
+    color: #fdcb6e;
+    font-size: 10px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+/* Dây nối SVG */
+.st-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* --- HIỆU ỨNG TRẠNG THÁI --- */
+.st-active {
+    background-color: #0984e3 !important; /* Xanh dương đậm */
+    transform: scale(1.15);
+    z-index: 10;
+    border-color: white !important;
+}
+
+.st-visited {
+    background-color: #00b894 !important; /* Xanh lá (Kết quả) */
+    border-color: #55efc4 !important;
+}
+
+.st-disabled {
+    opacity: 0.3; /* Mờ đi khi không xét */
+}

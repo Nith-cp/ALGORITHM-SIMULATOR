@@ -1293,13 +1293,11 @@ input[type=range] {
     transition: transform 0.3s, background-color 0.3s;
     box-shadow: 0 3px 5px rgba(0,0,0,0.2);
 }
-
-/* Nhãn phạm vi [L, R] nằm dưới node */
 .st-range {
     position: absolute;
-    top: 42px; /* Ngay dưới node 40px */
+    top: 42px; 
     left: 50%;
-    transform: translateX(-50%); /* Căn giữa so với node */
+    transform: translateX(-50%); 
     background: #636e72;
     color: #fdcb6e;
     font-size: 10px;
@@ -1307,8 +1305,6 @@ input[type=range] {
     border-radius: 4px;
     white-space: nowrap;
 }
-
-/* Dây nối SVG */
 .st-svg {
     position: absolute;
     top: 0;
@@ -1318,20 +1314,195 @@ input[type=range] {
     z-index: 1;
     pointer-events: none;
 }
-
-/* --- HIỆU ỨNG TRẠNG THÁI --- */
 .st-active {
-    background-color: #0984e3 !important; /* Xanh dương đậm */
+    background-color: #0984e3 !important; 
     transform: scale(1.15);
     z-index: 10;
     border-color: white !important;
 }
-
 .st-visited {
-    background-color: #00b894 !important; /* Xanh lá (Kết quả) */
+    background-color: #00b894 !important; 
     border-color: #55efc4 !important;
 }
-
 .st-disabled {
-    opacity: 0.3; /* Mờ đi khi không xét */
+    opacity: 0.3; 
+}
+/* =========================================
+   TRIE (PREFIX TREE) STYLING
+   ========================================= */
+
+/* Khu vực vẽ cây Trie */
+.trie-canvas {
+    position: relative;
+    width: 100%;
+    height: 400px;
+    background: #2d3436;
+    border-radius: 8px;
+    border: 1px solid #636e72;
+    overflow: auto; /* Cho phép cuộn nếu cây quá rộng */
+}
+
+/* Các Node của Trie */
+.trie-node {
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #2d3436;
+    border: 2px solid #b2bec3;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    transition: all 0.4s ease;
+    z-index: 5;
+    
+    /* QUAN TRỌNG: Ẩn đi lúc đầu để làm hiệu ứng xây cây */
+    opacity: 0; 
+    transform: scale(0.5);
+}
+
+/* Class để làm Node hiện ra */
+.trie-node.visible {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Node gốc (Root) */
+.trie-node.root {
+    border-color: #fdcb6e;
+    font-size: 10px; /* Chữ Root dài nên cho nhỏ lại */
+}
+
+/* Node đánh dấu kết thúc một từ */
+.trie-node.is-end {
+    border-color: #00b894;
+    border-width: 4px; /* Viền dày hơn */
+}
+
+/* Dây nối */
+.trie-line {
+    stroke: #b2bec3;
+    stroke-width: 2;
+    opacity: 0; /* Ẩn lúc đầu */
+    transition: opacity 0.4s, stroke 0.3s, stroke-width 0.3s;
+}
+
+.trie-line.visible {
+    opacity: 1;
+}
+
+/* --- HIỆU ỨNG TRẠNG THÁI (JS ĐIỀU KHIỂN) --- */
+.trie-active {
+    background-color: #0984e3 !important; /* Xanh dương: Đang xét */
+    border-color: #fff !important;
+    transform: scale(1.2) !important;
+    z-index: 10;
+    box-shadow: 0 0 10px #0984e3;
+}
+
+.trie-new {
+    background-color: #e17055 !important; /* Cam: Node mới được tạo */
+    border-color: #fff !important;
+}
+
+.trie-line.active {
+    stroke: #0984e3;
+    stroke-width: 4;
+}
+/* =========================================
+   TWO POINTERS STYLING
+   ========================================= */
+
+/* Khung chứa mảng */
+.tp-canvas {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 300px; /* Chiều cao vừa phải */
+    background: #2d3436;
+    border-radius: 8px;
+    border: 1px solid #636e72;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Hiển thị số Target cần tìm */
+.tp-target-box {
+    position: absolute;
+    top: 20px;
+    background: #fdcb6e;
+    color: #2d3436;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 16px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+}
+
+/* Dãy mảng */
+.tp-array {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px; /* Đẩy xuống một chút để nhường chỗ cho Target */
+}
+
+/* Từng ô phần tử trong mảng */
+.tp-cell {
+    width: 50px;
+    height: 50px;
+    background: #dfe6e9;
+    color: #2d3436;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    position: relative;
+    transition: all 0.3s ease;
+    border: 3px solid transparent;
+}
+
+/* Các con trỏ L và R (Nằm dưới ô mảng) */
+.tp-pointer {
+    position: absolute;
+    bottom: -35px; /* Cách đáy ô 35px */
+    left: 50%;
+    transform: translateX(-50%);
+    font-weight: bold;
+    font-size: 14px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    color: white;
+    transition: all 0.3s;
+    opacity: 0; /* Mặc định ẩn, khi chạy mới hiện */
+}
+
+.tp-pointer.left { background: #0984e3; }
+.tp-pointer.right { background: #e17055; }
+
+/* Trạng thái Highlight */
+.tp-cell.active-left { 
+    border-color: #0984e3; 
+    transform: translateY(-5px); /* Nảy nhẹ lên */
+    box-shadow: 0 5px 10px rgba(9, 132, 227, 0.3);
+}
+
+.tp-cell.active-right { 
+    border-color: #e17055; 
+    transform: translateY(-5px);
+    box-shadow: 0 5px 10px rgba(225, 112, 85, 0.3);
+}
+
+.tp-cell.found { 
+    background: #00b894; 
+    color: white; 
+    border-color: #55efc4; 
+    transform: scale(1.1);
+    box-shadow: 0 0 15px rgba(0, 184, 148, 0.5);
 }

@@ -1,6 +1,34 @@
 
 const algorithms = [
     { 
+        id: 120, 
+        name: "Two Pointers", 
+        category: "math", 
+        desc: "Dùng hai con trỏ (Trái và Phải) di chuyển ngược chiều nhau trên mảng ĐÃ SẮP XẾP để tìm nhanh cặp phần tử có tổng bằng Target.",
+        time: "O(N)", 
+        space: "O(1)",
+        code: `int left = 0, right = n - 1;\nwhile (left < right) {\n    int sum = arr[left] + arr[right];\n    if (sum == target) return true;\n    if (sum < target) left++;\n    else right--;\n}`,
+        legend: [
+            { color: "#0984e3", label: "Con trỏ Left (L)" },
+            { color: "#e17055", label: "Con trỏ Right (R)" },
+            { color: "#00b894", label: "Đã tìm thấy" }
+        ]
+    },
+    { 
+        id: 110, 
+        name: "Trie (Prefix Tree)", 
+        category: "data", 
+        desc: "Cấu trúc dữ liệu dạng cây chuyên dụng để lưu trữ và tìm kiếm các chuỗi (tiền tố). Các từ có chung tiền tố sẽ dùng chung nhánh với nhau.",
+        time: "O(L) với L là độ dài từ", 
+        space: "O(N * L)",
+        code: `void insert(string word) {\n    Node* curr = root;\n    for(char c : word) {\n        if(curr->child[c] == NULL)\n            curr->child[c] = new Node();\n        curr = curr->child[c];\n    }\n    curr->isEnd = true;\n}`,
+        legend: [
+            { color: "#0984e3", label: "Đang duyệt" },
+            { color: "#e17055", label: "Tạo Node mới" },
+            { color: "#00b894", label: "Kết thúc từ (Viền xanh)" }
+        ]
+    },
+    { 
         id: 40, 
         name: "Depth First Search (DFS)", 
         category: "graph", 
@@ -226,7 +254,7 @@ void mergeSort(int arr[], int l, int r) {
     { 
         id: 30, 
         name: "Segment Tree", 
-        category: "graph", 
+        category: "data", 
         desc: "Cây phân đoạn: Cấu trúc dữ liệu cây dùng để lưu trữ thông tin của các khoảng. Hỗ trợ tính Tổng, Min hoặc Max cực nhanh.",
         time: "O(n) Build", 
         space: "O(4n)",
@@ -240,7 +268,7 @@ void mergeSort(int arr[], int l, int r) {
     {
         id: 33,
         name: "Prefix Sum Array",
-        category: "math", 
+        category: "data", 
         desc: "Mảng cộng dồn S[i] = S[i-1] + A[i]. Dùng để tính tổng đoạn [L, R] trong O(1).",
         time: "O(N)",
         space: "O(N)",
@@ -249,7 +277,7 @@ void mergeSort(int arr[], int l, int r) {
     {
         id: 34,
         name: "Difference Array",
-        category: "math", 
+        category: "data", 
         desc: "Mảng hiệu D[i] = A[i] - A[i-1]. Dùng để update đoạn [L, R] trong O(1).",
         time: "O(N)",
         space: "O(N)",
@@ -280,7 +308,7 @@ for (int p = 2; p * p <= n; p++) {
     {
         id: 50,
         name: "Fenwick Tree",
-        category: "graph", // Để vào Graph theo yêu cầu
+        category: "data", 
         desc: "Fenwick Tree (BIT): Cấu trúc dữ liệu giúp tính tổng tiền tố và cập nhật giá trị trong O(log N). Sử dụng thao tác bit (i & -i) để nhảy giữa các nút.",
         time: "O(log N)",
         space: "O(N)",
@@ -554,19 +582,15 @@ function sleep(ms) {
     });
 }
 // --- BIẾN TOÀN CỤC KNAPSACK ---
-let knapItems = []; // {w, v}
+let knapItems = [];
 let knapCapacity = 0;
 let knapTable = [];
-
 // --- HÀM TẠO GIAO DIỆN KNAPSACK ---
 // ==========================================
 // 16. KNAPSACK UI (BẢNG NHỎ GỌN & CÂN ĐỐI)
 // ==========================================
 function generateKnapsackUI() {
     const container = document.getElementById('visualizer-container');
-    
-    // 1. Dữ liệu
-    // Giữ nguyên logic tạo dữ liệu
     knapCapacity = 8; 
     const numItems = 5;
     knapItems = Array.from({length: numItems}, (_, i) => ({
@@ -650,39 +674,27 @@ async function runKnapsack() {
     const n = knapItems.length;
     const W = knapCapacity;
     knapTable = Array.from({ length: n + 1 }, () => Array(W + 1).fill(0));
-
-    // Reset UI
     document.querySelectorAll('.dp-cell').forEach(el => {
         el.className = 'dp-cell'; el.innerText = '0';
     });
-
     for (let i = 1; i <= n; i++) {
-        let item = knapItems[i-1]; // Index mảng là i-1
-        
+        let item = knapItems[i-1]; 
         for (let w = 0; w <= W; w++) {
             if(shouldKill) { isRunning=false; if(btnRun) btnRun.disabled=false; return; }
             while(isPaused) { infoBox.innerHTML = "Đang tạm dừng..."; await sleep(100); }
-
             let cell = document.getElementById(`knap-cell-${i}-${w}`);
             cell.classList.add("dp-active");
-            
             infoBox.innerHTML = `Xét Item ${item.id} (W:${item.w}, V:${item.v}) tại sức chứa ${w}`;
             await sleep(300);
-
             if (item.w <= w) {
-                // Có thể chọn
                 let valExclude = knapTable[i-1][w];
                 let valInclude = item.v + knapTable[i-1][w - item.w];
-                
-                // Highlight so sánh
                 let cellEx = document.getElementById(`knap-cell-${i-1}-${w}`);
                 let cellIn = document.getElementById(`knap-cell-${i-1}-${w-item.w}`);
                 if(cellEx) cellEx.classList.add("dp-compare");
                 if(cellIn) cellIn.classList.add("dp-compare");
-
                 infoBox.innerHTML += `<br>So sánh: Bỏ qua (${valExclude}) vs Chọn (${valInclude})`;
                 await sleep(800);
-
                 knapTable[i][w] = Math.max(valExclude, valInclude);
                 cell.innerText = knapTable[i][w];
 
@@ -795,7 +807,6 @@ function selectAlgo(algo, event) {
     else if (algo.name === "DP LIS (O(n^2))") {
             if(typeof  generateLISUI === "function") generateLISUI();
     }
-
     else if (algo.name === "Prefix Sum Array") {
         if(typeof generatePrefixOnlyUI === "function") generatePrefixOnlyUI();
     }
@@ -831,6 +842,12 @@ function selectAlgo(algo, event) {
     }
     else if (algo.name === "Breadth First Search (BFS)") {
         if(typeof generateBFSUI === "function") generateBFSUI();
+    }
+    else if (algo.name === "Trie (Prefix Tree)") {
+        if(typeof generateTrieUI === "function") generateTrieUI();
+    }
+    else if (algo.name === "Two Pointers") {
+        if(typeof generateTwoPointersUI === "function") generateTwoPointersUI();
     }
     else {
         generateData();
@@ -900,12 +917,10 @@ function generateData() {
         if(typeof generateLISUI === "function") generateLISUI();
         return;
     }
-
     if (currentAlgo === "DP Frog Jump") {
         if(typeof generateFrogUI === "function") generateFrogUI();
         return;
     }
-
     if (currentAlgo === "LCS (Longest Common Subsequence)") {
          if(typeof generateLCSUI === "function") generateLCSUI();
         return;
@@ -952,6 +967,14 @@ function generateData() {
     }
     if (currentAlgo === "Breadth First Search (BFS)") {
         if(typeof generateBFSUI === "function") generateBFSUI();
+        return;
+    }
+    if (currentAlgo === "Trie (Prefix Tree)") {
+        if(typeof generateTrieUI === "function") generateTrieUI();
+        return;
+    }
+    if (currentAlgo === "Two Pointers") {
+        if(typeof generateTwoPointersUI === "function") generateTwoPointersUI();
         return;
     }
     if (currentAlgo === "Segment Tree") {
@@ -1022,14 +1045,16 @@ function startSimulation() {
         runDijkstra();
     } else if (currentAlgo === "Lowest Common Ancestor") {
         runLCA();
-    } 
-    else if (currentAlgo === "0/1 Knapsack (DP)") {
+    } else if (currentAlgo === "0/1 Knapsack (DP)") {
         runKnapsack();
-    }
-    else if (currentAlgo === "Depth First Search (DFS)") {
+    } else if (currentAlgo === "Depth First Search (DFS)") {
         runDFS();
-    }  else if (currentAlgo === "Breadth First Search (BFS)") {
+    } else if (currentAlgo === "Breadth First Search (BFS)") {
         runBFS();
+    } else if (currentAlgo === "Trie (Prefix Tree)") {
+        runTrie();
+    } else if (currentAlgo === "Two Pointers") {
+        runTwoPointers();
     } else {
         alert("Thuật toán này chưa được code!");
     }
@@ -1936,7 +1961,7 @@ function generateDiffOnlyUI() {
     da_Arr = Array.from({length: 6}, () => Math.floor(Math.random() * 10) + 1);
     container.innerHTML = `
         <div class="pd-container" style="gap:20px">
-            <h3 style="color:#74b9ff">Mối liên hệ: Gốc (A) $\to$ Hiệu (D) & Prefix (S)</h3>
+            <h3 style="color:#74b9ff">Mối liên hệ: Gốc (A) & Hiệu (D) & Prefix (S)</h3>
             <div class="pd-row-wrapper">
                 <div class="pd-label-box">
                     <span style="color:#74b9ff">A</span>
@@ -4218,6 +4243,329 @@ async function runDFS() {
     }
     await dfsRecursive(0); 
     infoBox.innerHTML += "<br><b>Hoàn tất thuật toán DFS!</b>";
+    isRunning = false;
+    if(btnRun) btnRun.disabled = false;
+    if(btnPause) btnPause.disabled = true;
+}
+// ==========================================
+// TRIE UI GENERATOR
+// ==========================================
+
+let trieWords = [];
+let trieRoot = null;
+let trieNodesMap = {}; 
+
+function generateTrieUI() {
+    const container = document.getElementById('visualizer-container');
+    
+    // 1. Tạo ngẫu nhiên 1 nhóm từ (Cố tình cho các từ có chung tiền tố để cây đẹp)
+    const wordPools = [
+        ["CAT", "CAR", "DOG", "DOT"],
+        ["SET", "SEA", "BAT", "BAR"],
+        ["TEA", "TEN", "IN", "INN"],
+        ["API", "APP", "WEB", "WET"]
+    ];
+    trieWords = wordPools[Math.floor(Math.random() * wordPools.length)];
+
+    // 2. Xây dựng cây Trie logic ngầm để tính tọa độ
+    trieRoot = { id: 'trie-root', char: 'Root', children: {}, isEnd: false };
+    let trieNodeCounter = 0;
+    trieNodesMap = { 'trie-root': trieRoot };
+
+    for (let word of trieWords) {
+        let curr = trieRoot;
+        for (let char of word) {
+            if (!curr.children[char]) {
+                trieNodeCounter++;
+                let newId = `trie-node-${trieNodeCounter}`;
+                let newNode = { id: newId, char: char, children: {}, isEnd: false };
+                curr.children[char] = newNode;
+                trieNodesMap[newId] = newNode;
+            }
+            curr = curr.children[char];
+        }
+        curr.isEnd = true;
+    }
+
+    // 3. Tính toán Tọa độ X, Y (Cân bằng cây)
+    let leafX = 40;
+    function calculateLayout(node, level) {
+        let keys = Object.keys(node.children);
+        // Nếu là node lá (Cuối cành)
+        if (keys.length === 0) {
+            node.x = leafX;
+            leafX += 60; // Khoảng cách giữa các node lá
+            node.y = level * 70 + 30; // 70px mỗi tầng
+            return;
+        }
+        
+        let sumX = 0;
+        for (let k of keys) {
+            calculateLayout(node.children[k], level + 1);
+            sumX += node.children[k].x;
+        }
+        // Cha nằm giữa các con
+        node.x = sumX / keys.length;
+        node.y = level * 70 + 30;
+    }
+    calculateLayout(trieRoot, 0);
+
+    // Dịch toàn bộ cây ra giữa khung nếu cây nhỏ
+    const canvasWidth = container.offsetWidth || 800;
+    const treeWidth = leafX;
+    const offsetX = (canvasWidth > treeWidth) ? (canvasWidth - treeWidth) / 2 : 0;
+
+    // 4. Sinh mã HTML
+    let nodesHTML = '';
+    let linesHTML = '';
+
+    function drawTrie(node) {
+        let finalX = node.x + offsetX;
+        
+        // Root luôn hiện sẵn, các node khác ẩn
+        let extraClass = node === trieRoot ? 'root visible' : ''; 
+        let endClass = node.isEnd ? 'is-end' : '';
+        
+        nodesHTML += `<div id="${node.id}" class="trie-node ${extraClass} ${endClass}" style="left: ${finalX}px; top: ${node.y}px;">${node.char}</div>`;
+
+        for (let k in node.children) {
+            let child = node.children[k];
+            let childX = child.x + offsetX;
+            
+            // Vẽ dây từ tâm (node 36px -> tâm +18px)
+            linesHTML += `<line id="line-${node.id}-${child.id}" class="trie-line" x1="${finalX + 18}" y1="${node.y + 18}" x2="${childX + 18}" y2="${child.y + 18}" />`;
+            
+            drawTrie(child);
+        }
+    }
+    drawTrie(trieRoot);
+
+    // Xuất ra layout y hệt Segment Tree (Cây ở trên, Log bo tròn ở dưới)
+    container.innerHTML = `
+        <div class="st-container-wrapper">
+            <div class="trie-canvas">
+                <svg class="st-svg">${linesHTML}</svg>
+                ${nodesHTML}
+            </div>
+            <div id="trie-log-box" class="st-log-box">
+                Sẵn sàng: Chuẩn bị chèn các từ [${trieWords.join(', ')}] vào cây rỗng.
+            </div>
+        </div>
+    `;
+}
+// ==========================================
+// RUNNER: TRIE SIMULATION
+// ==========================================
+async function runTrie() {
+    if(typeof isRunning !== 'undefined' && isRunning) { shouldKill = true; isRunning = false; await sleep(100); }
+    const btnRun = document.getElementById('btn-run');
+    const btnPause = document.getElementById('btn-pause');
+    const logBox = document.getElementById('trie-log-box');
+
+    isRunning = true; isPaused = false; shouldKill = false;
+    if(btnRun) btnRun.disabled = true;
+    if(btnPause) { btnPause.disabled = false; btnPause.innerText = "Tạm dừng"; }
+
+    // Reset lại màn hình (Ẩn toàn bộ cây trừ root)
+    document.querySelectorAll('.trie-node:not(.root)').forEach(el => {
+        el.classList.remove('visible', 'trie-active', 'trie-new');
+        el.style.backgroundColor = ""; // Reset inline color
+    });
+    document.querySelectorAll('.trie-line').forEach(el => {
+        el.classList.remove('visible', 'active');
+    });
+    document.getElementById('trie-root').classList.remove('trie-active');
+
+    logBox.innerHTML = `Bắt đầu chèn lần lượt các từ: <b>${trieWords.join(', ')}</b>`;
+    await sleep(1500);
+
+    // Duyệt qua từng từ
+    for (let word of trieWords) {
+        if(shouldKill) break;
+        logBox.innerHTML = `Đang xử lý từ: <b>"${word}"</b>`;
+        await sleep(800);
+
+        let currNode = trieRoot;
+        let currEl = document.getElementById(currNode.id);
+        currEl.classList.add('trie-active'); // Sáng root
+        await sleep(500);
+
+        // Duyệt qua từng chữ cái của từ đó
+        for (let char of word) {
+            if(shouldKill) { isRunning=false; if(btnRun) btnRun.disabled=false; return; }
+            while(isPaused) { logBox.innerHTML = "Đang tạm dừng..."; await sleep(100); }
+
+            let nextNode = currNode.children[char];
+            let nextEl = document.getElementById(nextNode.id);
+            let lineEl = document.getElementById(`line-${currNode.id}-${nextNode.id}`);
+
+            currEl.classList.remove('trie-active');
+
+            // NẾU NODE NÀY CHƯA HIỆN -> TỨC LÀ NHÁNH MỚI
+            if (!nextEl.classList.contains('visible')) {
+                logBox.innerHTML = `Chưa có nhánh '${char}'. -> <b>Tạo Node mới '${char}'</b>`;
+                nextEl.classList.add('visible', 'trie-new'); // Bật hiện node + Màu cam
+                if(lineEl) lineEl.classList.add('visible', 'active'); // Bật dây nối
+                await sleep(800);
+                nextEl.classList.remove('trie-new'); // Trả về màu bình thường
+            } 
+            // NẾU NODE ĐÃ CÓ SẴN (CHUNG TIỀN TỐ)
+            else {
+                logBox.innerHTML = `Đã có sẵn nhánh '${char}'. -> <b>Đi tiếp xuống '${char}'</b>`;
+                if(lineEl) lineEl.classList.add('active'); // Dây nối sáng xanh
+                await sleep(800);
+            }
+
+            // Đi xuống node con
+            nextEl.classList.add('trie-active');
+            if(lineEl) lineEl.classList.remove('active'); // Trả màu dây về xám
+
+            currNode = nextNode;
+            currEl = nextEl;
+        }
+
+        // Đánh dấu kết thúc từ
+        logBox.innerHTML = `Đã chèn xong <b>"${word}"</b>. Đánh dấu Node kết thúc.`;
+        currEl.classList.remove('trie-active');
+        currEl.style.backgroundColor = "#00b894"; // Đổi nền màu xanh lá
+        await sleep(1000);
+        currEl.style.backgroundColor = ""; // Trả về để CSS tự lo viền xanh is-end
+    }
+
+    logBox.innerHTML = `<b>Hoàn tất xây dựng cây Trie!</b>`;
+    logBox.style.backgroundColor = "#55efc4"; // Highlight log kết thúc
+    isRunning = false;
+    if(btnRun) btnRun.disabled = false;
+    if(btnPause) btnPause.disabled = true;
+}// ==========================================
+// TWO POINTERS UI GENERATOR
+// ==========================================
+
+let tpArr = [];
+let tpTarget = 0;
+
+function generateTwoPointersUI() {
+    const container = document.getElementById('visualizer-container');
+
+    // 1. Tạo ngẫu nhiên 10 số và SẮP XẾP TĂNG DẦN (Bắt buộc với Two Pointers)
+    const n = 10;
+    tpArr = Array.from({length: n}, () => Math.floor(Math.random() * 25) + 1).sort((a, b) => a - b);
+
+    // 2. Chọn ngẫu nhiên 2 vị trí bất kỳ để làm đáp án ẩn (tạo Target)
+    let idx1 = Math.floor(Math.random() * (n/2));
+    let idx2 = Math.floor(n/2 + Math.random() * (n/2));
+    tpTarget = tpArr[idx1] + tpArr[idx2];
+
+    // 3. Tạo mã HTML cho mảng
+    let cellsHTML = tpArr.map((val, idx) => `
+        <div id="tp-cell-${idx}" class="tp-cell">
+            ${val}
+            <div id="tp-ptr-L-${idx}" class="tp-pointer left">L</div>
+            <div id="tp-ptr-R-${idx}" class="tp-pointer right">R</div>
+        </div>
+    `).join('');
+
+    // Đổ ra giao diện theo cấu trúc Flexbox dùng chung
+    container.innerHTML = `
+        <div class="st-container-wrapper">
+            <div class="tp-canvas">
+                <div class="tp-target-box">Target: ${tpTarget}</div>
+                <div class="tp-array">
+                    ${cellsHTML}
+                </div>
+            </div>
+            <div id="tp-log-box" class="st-log-box">
+                Đã tạo mảng tăng dần. Sẵn sàng tìm cặp có tổng = ${tpTarget}.
+            </div>
+        </div>
+    `;
+}
+// ==========================================
+// RUNNER: TWO POINTERS
+// ==========================================
+async function runTwoPointers() {
+    if(typeof isRunning !== 'undefined' && isRunning) { shouldKill = true; isRunning = false; await sleep(100); }
+    const btnRun = document.getElementById('btn-run');
+    const btnPause = document.getElementById('btn-pause');
+    const logBox = document.getElementById('tp-log-box');
+
+    isRunning = true; isPaused = false; shouldKill = false;
+    if(btnRun) btnRun.disabled = true;
+    if(btnPause) { btnPause.disabled = false; btnPause.innerText = "Tạm dừng"; }
+
+    // Reset lại UI
+    document.querySelectorAll('.tp-pointer').forEach(el => el.style.opacity = '0');
+    document.querySelectorAll('.tp-cell').forEach(el => {
+        el.className = 'tp-cell';
+    });
+    logBox.style.backgroundColor = "#dfe6e9";
+
+    // Khởi tạo 2 con trỏ
+    let left = 0;
+    let right = tpArr.length - 1;
+
+    logBox.innerHTML = `Đặt Left ở đầu mảng (Chỉ số 0), Right ở cuối mảng (Chỉ số ${right}).`;
+    await sleep(1500);
+
+    // Vòng lặp Two Pointers
+    while (left < right) {
+        if(shouldKill) { isRunning = false; if(btnRun) btnRun.disabled=false; return; }
+        while(isPaused) { logBox.innerHTML = "Đang tạm dừng..."; await sleep(100); }
+
+        // Lấy DOM Elements
+        let cellL = document.getElementById(`tp-cell-${left}`);
+        let cellR = document.getElementById(`tp-cell-${right}`);
+        let ptrL = document.getElementById(`tp-ptr-L-${left}`);
+        let ptrR = document.getElementById(`tp-ptr-R-${right}`);
+
+        // Bật highlight và hiện con trỏ
+        cellL.classList.add('active-left');
+        cellR.classList.add('active-right');
+        ptrL.style.opacity = '1';
+        ptrR.style.opacity = '1';
+
+        // Tính tổng
+        let sum = tpArr[left] + tpArr[right];
+        logBox.innerHTML = `Đang xét L=${left}, R=${right}.<br>Tổng: ${tpArr[left]} + ${tpArr[right]} = <b>${sum}</b>`;
+        await sleep(1500);
+
+        if (sum === tpTarget) {
+            // TÌM THẤY
+            logBox.innerHTML = `<b>Tuyệt vời!</b> Tổng ${sum} bằng đúng Target ${tpTarget}.`;
+            cellL.classList.remove('active-left');
+            cellR.classList.remove('active-right');
+            cellL.classList.add('found');
+            cellR.classList.add('found');
+            logBox.style.backgroundColor = "#55efc4";
+            break; 
+            
+        } else if (sum < tpTarget) {
+            // NHỎ HƠN -> TĂNG LEFT
+            logBox.innerHTML = `Tổng (${sum}) < Target (${tpTarget}).<br>→ Cần số lớn hơn, ta <b>tăng con trỏ Left</b>.`;
+            await sleep(1200);
+            
+            // Xóa highlight và ẩn con trỏ hiện tại đi để chuẩn bị nhích lên
+            ptrL.style.opacity = '0';
+            cellL.classList.remove('active-left');
+            left++;
+            
+        } else {
+            // LỚN HƠN -> GIẢM RIGHT
+            logBox.innerHTML = `Tổng (${sum}) > Target (${tpTarget}).<br>→ Cần số nhỏ hơn, ta <b>giảm con trỏ Right</b>.`;
+            await sleep(1200);
+            
+            ptrR.style.opacity = '0';
+            cellR.classList.remove('active-right');
+            right--;
+        }
+    }
+
+    // Trường hợp xấu (thường hàm random của mình đã né được TH này)
+    if (left >= right && (tpArr[left] + tpArr[right] !== tpTarget)) {
+        logBox.innerHTML = `<b>Kết thúc:</b> Không tìm thấy cặp số nào có tổng = ${tpTarget}.`;
+        logBox.style.backgroundColor = "#fab1a0";
+    }
+
     isRunning = false;
     if(btnRun) btnRun.disabled = false;
     if(btnPause) btnPause.disabled = true;

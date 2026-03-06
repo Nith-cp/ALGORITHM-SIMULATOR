@@ -447,31 +447,6 @@ while (!pq.empty()) {
             { color: "#10b981", label: "Đã chốt (Done)" }
         ]
     },
-    { 
-        id: 30,
-        name: "Lowest Common Ancestor", 
-        category: "graph", 
-        desc: "Tìm tổ tiên chung gần nhất (LCA) của hai nút trong cây. Giải thuật: Đưa 2 nút về cùng độ sâu, sau đó cùng nhảy lên cha cho đến khi gặp nhau.",
-        time: "O(h)",    
-        space: "O(N)",   
-        code: `// C++ Implementation
-int getLCA(int u, int v) {
-    // 1. Cân bằng độ sâu
-    while (depth[u] > depth[v]) u = parent[u];
-    while (depth[v] > depth[u]) v = parent[v];
-    // 2. Cùng nhảy lên
-    while (u != v) {
-        u = parent[u];
-        v = parent[v];
-    }
-    return u;
-}`,
-        legend: [
-            { color: "#0984e3", label: "Nút U (Đang xét)" },
-            { color: "#e17055", label: "Nút V (Đang xét)" },
-            { color: "#00b894", label: "Kết quả (LCA)" }
-        ]
-    },
     {
     id: 90,
     name: "0/1 Knapsack (DP)",

@@ -570,8 +570,13 @@ function updateSpeed() {
     delayTime = 2010 - val; 
 }
 // --- HÀM SLEEP ---
+// Thay 'speed-slider' bằng ID thật của thẻ <input type="range"> của bạn
+// --- HÀM SLEEP (Đã fix lỗi đồng bộ thanh trượt tốc độ) ---
 function sleep(ms) {
-    const timeToWait = (ms !== undefined) ? ms : delayTime;
+    // Lấy delayTime (từ thanh trượt) làm mốc gốc (Giả sử mốc chuẩn ban đầu là 500)
+    // Nhân chia theo tỉ lệ để vẫn giữ được nhịp điệu nhanh/chậm của từng bước thuật toán
+    const timeToWait = (ms !== undefined) ? (ms * (delayTime / 500)) : delayTime;
+    
     return new Promise((resolve) => {
         setTimeout(async () => {
             if (isPaused) {
@@ -586,164 +591,220 @@ let knapItems = [];
 let knapCapacity = 0;
 let knapTable = [];
 // --- HÀM TẠO GIAO DIỆN KNAPSACK ---
-// ==========================================
-// 16. KNAPSACK UI (BẢNG NHỎ GỌN & CÂN ĐỐI)
-// ==========================================
 function generateKnapsackUI() {
     const container = document.getElementById('visualizer-container');
-    knapCapacity = 8; 
-    const numItems = 5;
-    knapItems = Array.from({length: numItems}, (_, i) => ({
-        id: i+1,
-        w: Math.floor(Math.random() * 4) + 1, 
-        v: Math.floor(Math.random() * 10) + 5  
-    }));
-
-    const rows = numItems + 1;
-    const cols = knapCapacity + 1;
-
-    // 2. Tạo HTML
-    // Item Panel
-    let itemsHTML = knapItems.map(item => 
-        `<div class="knap-item-box">#${item.id}: ${item.w}kg - $${item.v}</div>`
-    ).join('');
-
-    // --- ĐIỂM SỬA ĐỔI: Dùng class nhỏ (small) ---
+    container.innerHTML = '';
     
-    // Header hàng đầu tiên (0 -> Capacity)
-    let gridHTML = `<div class="dp-header-small" style="width:50px">Item</div>`; // Cột đầu 50px
-    for(let w = 0; w <= knapCapacity; w++) {
-        gridHTML += `<div class="dp-header-small">${w}</div>`;
+    // 1. Khởi tạo dữ liệu Balo ngẫu nhiên
+    ksN = 4;
+    ksWeight = [];
+    ksVal = [];
+    for(let i=0; i<ksN; i++) {
+        ksWeight.push(Math.floor(Math.random() * 3) + 2); // Trọng lượng 2-4
+        ksVal.push(Math.floor(Math.random() * 5) + 4);    // Giá trị 4-8
     }
+    
+    ksMaxW = Math.floor(ksWeight.reduce((a, b) => a + b, 0) * 0.6);
+    if(ksMaxW < 5) ksMaxW = 5;
+    if(ksMaxW > 9) ksMaxW = 9; 
+    
+    ksDP = Array.from({length: ksN + 1}, () => new Array(ksMaxW + 1).fill(0));
 
-    // Các hàng dữ liệu
-    // Hàng 0 (Rỗng)
-    gridHTML += `<div class="dp-header-small" style="width:50px">Ø</div>`;
-    for(let w = 0; w <= knapCapacity; w++) {
-        gridHTML += `<div id="knap-cell-0-${w}" class="dp-cell-small">0</div>`;
+    // 2. KHU VỰC HIỂN THỊ CÁC MÓN ĐỒ VÀ BALO (Giảm margin-bottom và font-size cho lùn lại)
+    let itemsHTML = `<div style="display:flex; gap:8px; margin-bottom: 12px; justify-content: center; flex-wrap: wrap;">`;
+    itemsHTML += `<div style="background:#d63031; color:white; padding: 4px 12px; border-radius: 6px; font-weight:bold; display:flex; align-items:center; font-size:14px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">🎒 Balo: W = ${ksMaxW}</div>`;
+    
+    for(let i=0; i<ksN; i++) {
+        itemsHTML += `
+            <div id="ks-item-${i+1}" style="background:#2d3436; border: 2px solid #636e72; color:#dfe6e9; padding: 4px 10px; border-radius: 6px; text-align:center; transition: all 0.3s; font-size: 13px;">
+                <b>Item ${i+1}</b><br>
+                <span style="color:#74b9ff;">w: ${ksWeight[i]}</span> | <span style="color:#55efc4;">v: ${ksVal[i]}</span>
+            </div>`;
     }
+    itemsHTML += `</div>`;
 
-    // Hàng đồ vật
-    knapItems.forEach((item, idx) => {
-        let i = idx + 1;
-        // Cột tên đồ vật
-        gridHTML += `<div class="dp-header-small" style="width:50px; justify-content:flex-start; padding-left:5px;">#${item.id}</div>`;
+    // 3. TẠO BẢNG DP (Giảm padding xuống 6px và font-size xuống 14px)
+    let tableHTML = `<table style="border-collapse: collapse; margin: 0 auto; color: #dfe6e9; font-family: monospace; font-size: 14px;">`;
+    
+    tableHTML += `<tr><th style="padding: 6px; border:none;"></th><th style="padding: 6px; border: 1px solid #636e72; background: #2d3436; color: #b2bec3;">j=0</th>`;
+    for(let j=1; j<=ksMaxW; j++) {
+        tableHTML += `<th id="ks-col-head-${j}" style="padding: 6px; border: 1px solid #636e72; background: #353b48; color: #fdcb6e; font-size: 14px; transition: all 0.3s;">W=${j}</th>`;
+    }
+    tableHTML += `</tr>`;
+
+    tableHTML += `<tr><th style="padding: 6px; border: 1px solid #636e72; background: #2d3436; color: #b2bec3;">i=0 (∅)</th>`;
+    for(let j=0; j<=ksMaxW; j++) {
+        tableHTML += `<td id="ks-cell-0-${j}" style="padding: 6px; border: 1px solid #636e72; text-align: center; font-weight: bold; color: #636e72; background: rgba(0,0,0,0.2);">0</td>`;
+    }
+    tableHTML += `</tr>`;
+
+    for(let i=1; i<=ksN; i++) {
+        tableHTML += `<tr><th id="ks-row-head-${i}" style="padding: 6px; border: 1px solid #636e72; background: #353b48; color: #74b9ff; font-size: 14px; transition: all 0.3s; width: 80px; text-align: center;">Item ${i}<br><span style="font-size:11px; color:#b2bec3;">(w:${ksWeight[i-1]}, v:${ksVal[i-1]})</span></th>`;
         
-        // Các ô giá trị
-        for(let w = 0; w <= knapCapacity; w++) {
-            gridHTML += `<div id="knap-cell-${i}-${w}" class="dp-cell-small">0</div>`;
+        tableHTML += `<td id="ks-cell-${i}-0" style="padding: 6px; border: 1px solid #636e72; text-align: center; font-weight: bold; color: #636e72; background: rgba(0,0,0,0.2);">0</td>`;
+        
+        for(let j=1; j<=ksMaxW; j++) {
+            // Giảm kích thước width/height của ô xuống 28px
+            tableHTML += `<td id="ks-cell-${i}-${j}" style="padding: 6px; border: 1px solid #636e72; text-align: center; font-weight: bold; transition: all 0.3s; width: 28px; height: 28px; color: #dfe6e9;"></td>`;
         }
-    });
+        tableHTML += `</tr>`;
+    }
+    tableHTML += `</table>`;
 
-    // Tính toán lại chiều rộng grid cho khớp
-    // Cột đầu 50px, các cột sau 32px
-    const gridTemplate = `50px repeat(${cols}, 32px)`;
-
+    // 4. RENDER LAYOUT (GIẢM CHIỀU CAO HEIGHT TỪ 460px XUỐNG 380px)
     container.innerHTML = `
-        <div class="dp-2d-layout">
-            <div class="knap-items-panel">
-                <div style="background:#fdcb6e; color:#2d3436; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:11px;">
-                    Max: ${knapCapacity}kg
-                </div>
-                ${itemsHTML}
+    <div class="ks-layout" style="display: flex; gap: 12px; height: 400px; width: 100%; align-items: stretch; padding: 2px;">
+        <div class="table-area" style="flex: 1; background: #2d3436; border-radius: 8px; border: 1px solid #636e72; padding: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: auto; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);">
+            ${itemsHTML}
+            <div style="max-width: 100%; overflow: auto;">
+                ${tableHTML}
             </div>
+        </div>
 
-            <div class="dp-matrix-area">
-                <div class="dp-matrix" style="grid-template-columns: ${gridTemplate}; gap: 2px;">
-                    ${gridHTML}
-                </div>
-            </div>
-
-            <div id="knap-info" class="frog-log" style="height: 60px;">
+        <div class="ks-sidebar" style="width: 250px; display: flex; flex-direction: column; gap: 8px; padding: 10px; background: #2d3436; border: 1px solid #636e72; border-radius: 8px; box-sizing: border-box;">
+            <h4 style="color:#74b9ff; text-align:center; margin: 0 0 4px 0; border-bottom:1px solid #555; padding-bottom:6px; font-size: 15px;">Knapsack Control</h4>
+            
+            <div id="ks-info" style="flex: 1; background:rgba(0,0,0,0.3); color:#fdcb6e; padding:10px; border-radius:6px; font-size:13px; overflow-y: auto; line-height: 1.5; border: 1px solid #444; margin-top: 5px; scrollbar-width: thin;">
+                Đã tạo Balo W = ${ksMaxW}.<br>
+                Có ${ksN} món đồ để chọn.<br>
+                Hàng 0 và Cột 0 gán = 0.<br><br>
                 Sẵn sàng chạy!
             </div>
         </div>
+    </div>
     `;
 }
 // --- RUNNER KNAPSACK ---
 async function runKnapsack() {
-    if(typeof isRunning !== 'undefined' && isRunning) { shouldKill = true; isRunning = false; await sleep(100); }
+    if(typeof isRunning !== 'undefined' && isRunning) {
+        shouldKill = true;
+        isRunning = false;
+        await sleep(100);
+    }
     const btnRun = document.getElementById('btn-run');
     const btnPause = document.getElementById('btn-pause');
-    const infoBox = document.getElementById('knap-info');
-
-    isRunning = true; isPaused = false; shouldKill = false;
-    if(btnRun) btnRun.disabled = true; 
+    const infoBox = document.getElementById('ks-info');
+    
+    isRunning = true;
+    isPaused = false;
+    shouldKill = false;
+    if(btnRun) btnRun.disabled = true;
     if(btnPause) { btnPause.disabled = false; btnPause.innerText = "Tạm dừng"; }
-
-    const n = knapItems.length;
-    const W = knapCapacity;
-    knapTable = Array.from({ length: n + 1 }, () => Array(W + 1).fill(0));
-    document.querySelectorAll('.dp-cell').forEach(el => {
-        el.className = 'dp-cell'; el.innerText = '0';
-    });
-    for (let i = 1; i <= n; i++) {
-        let item = knapItems[i-1]; 
-        for (let w = 0; w <= W; w++) {
-            if(shouldKill) { isRunning=false; if(btnRun) btnRun.disabled=false; return; }
-            while(isPaused) { infoBox.innerHTML = "Đang tạm dừng..."; await sleep(100); }
-            let cell = document.getElementById(`knap-cell-${i}-${w}`);
-            cell.classList.add("dp-active");
-            infoBox.innerHTML = `Xét Item ${item.id} (W:${item.w}, V:${item.v}) tại sức chứa ${w}`;
-            await sleep(300);
-            if (item.w <= w) {
-                let valExclude = knapTable[i-1][w];
-                let valInclude = item.v + knapTable[i-1][w - item.w];
-                let cellEx = document.getElementById(`knap-cell-${i-1}-${w}`);
-                let cellIn = document.getElementById(`knap-cell-${i-1}-${w-item.w}`);
-                if(cellEx) cellEx.classList.add("dp-compare");
-                if(cellIn) cellIn.classList.add("dp-compare");
-                infoBox.innerHTML += `<br>So sánh: Bỏ qua (${valExclude}) vs Chọn (${valInclude})`;
-                await sleep(800);
-                knapTable[i][w] = Math.max(valExclude, valInclude);
-                cell.innerText = knapTable[i][w];
-
-                if(cellEx) cellEx.classList.remove("dp-compare");
-                if(cellIn) cellIn.classList.remove("dp-compare");
-            } else {
-                // Không thể chọn (quá nặng)
-                let cellEx = document.getElementById(`knap-cell-${i-1}-${w}`);
-                if(cellEx) cellEx.classList.add("dp-match"); // Xanh lá báo hiệu copy xuống
+    
+    infoBox.innerHTML = `Bắt đầu điền bảng DP...<br><br>`;
+    
+    for(let i = 1; i <= ksN; i++) {
+        let w_i = ksWeight[i-1];
+        let v_i = ksVal[i-1];
+        
+        // Làm sáng ô Item đang xét ở phía trên cùng
+        let itemBox = document.getElementById(`ks-item-${i}`);
+        if(itemBox) itemBox.style.borderColor = "#fdcb6e";
+        
+        for(let j = 1; j <= ksMaxW; j++) {
+            if(shouldKill) break;
+            while(isPaused) await sleep(100);
+            
+            let cell = document.getElementById(`ks-cell-${i}-${j}`);
+            let rowHead = document.getElementById(`ks-row-head-${i}`);
+            let colHead = document.getElementById(`ks-col-head-${j}`);
+            
+            rowHead.style.background = "#d63031"; rowHead.style.color = "#fff";
+            colHead.style.background = "#0984e3"; colHead.style.color = "#fff";
+            cell.style.background = "rgba(253, 203, 110, 0.2)"; 
+            
+            if(w_i > j) {
+                // TRƯỜNG HỢP 1: Món đồ quá nặng, không nhét vừa Balo hiện tại (j)
+                infoBox.innerHTML += `<div>👉 <b style="color:#ff7675">Item ${i}</b> (w=${w_i}) > Đang trống: ${j}<br><span style="color:#b2bec3">Chưa vừa. Lấy từ trên xuống: ${ksDP[i-1][j]}</span></div>`;
+                ksDP[i][j] = ksDP[i-1][j];
                 
-                knapTable[i][w] = knapTable[i-1][w];
-                cell.innerText = knapTable[i][w];
-                infoBox.innerHTML += `<br>Quá nặng (${item.w} > ${w}). Lấy giá trị hàng trên.`;
+                let topCell = document.getElementById(`ks-cell-${i-1}-${j}`);
+                topCell.style.background = "rgba(225, 112, 85, 0.4)"; // Nháy đỏ ô phía trên
                 await sleep(500);
-                if(cellEx) cellEx.classList.remove("dp-match");
+                
+                cell.innerHTML = ksDP[i][j];
+                cell.style.color = "#b2bec3";
+                topCell.style.background = "transparent";
+            } else {
+                // TRƯỜNG HỢP 2: Món đồ nhét vừa. Tính xem LẤY hay KHÔNG LẤY thì hời hơn
+                let notPick = ksDP[i-1][j];
+                let pick = ksDP[i-1][j - w_i] + v_i;
+                
+                infoBox.innerHTML += `<div>👉 <b style="color:#74b9ff">Item ${i}</b> (w=${w_i}) ≤ Đang trống: ${j}<br><span style="color:#fdcb6e">Max( Bỏ qua: ${notPick}, Nhặt: ${ksDP[i-1][j-w_i]} + <span style="color:#55efc4">${v_i}</span> = ${pick} )</span></div>`;
+                
+                let topCell = document.getElementById(`ks-cell-${i-1}-${j}`); // Ô nếu không nhặt
+                let pickCell = document.getElementById(`ks-cell-${i-1}-${j - w_i}`); // Ô trọng lượng dư nếu nhặt
+                
+                topCell.style.background = "rgba(225, 112, 85, 0.4)"; 
+                pickCell.style.background = "rgba(0, 184, 148, 0.4)";
+                await sleep(500);
+                
+                ksDP[i][j] = Math.max(notPick, pick);
+                cell.innerHTML = ksDP[i][j];
+                
+                if(pick > notPick) cell.style.color = "#00b894"; // Nhặt thì in màu xanh
+                else cell.style.color = "#fdcb6e"; // Không nhặt in màu cam
+                
+                topCell.style.background = "transparent";
+                pickCell.style.background = "transparent";
             }
             
-            cell.classList.remove("dp-active");
+            infoBox.scrollTop = infoBox.scrollHeight;
+            await sleep(300);
+            
+            rowHead.style.background = "#353b48"; rowHead.style.color = "#74b9ff";
+            colHead.style.background = "#353b48"; colHead.style.color = "#fdcb6e";
+            cell.style.background = "transparent";
         }
+        if(itemBox) itemBox.style.borderColor = "#636e72"; // Tắt sáng item đang xét
     }
-
-    // --- TRUY VẾT ---
-    infoBox.innerHTML = "Hoàn tất. Truy vết đồ vật được chọn...";
-    let w = W;
-    let selectedItems = [];
     
-    for (let i = n; i > 0; i--) {
-        if(shouldKill) break;
-        let cell = document.getElementById(`knap-cell-${i}-${w}`);
-        cell.classList.add("dp-result"); // Vàng
-
-        if (knapTable[i][w] !== knapTable[i-1][w]) {
-            let item = knapItems[i-1];
-            selectedItems.push(item.id);
-            infoBox.innerHTML = `Giá trị thay đổi -> <b>Chọn Item ${item.id}</b>`;
-            w -= item.w;
-            await sleep(800);
-        } else {
-             infoBox.innerHTML = `Giá trị giữ nguyên -> Không chọn Item ${knapItems[i-1].id}`;
-             await sleep(300);
+    // --- TRUY VẾT KẾT QUẢ ĐỂ CHỌN ĐỒ ---
+    if(!shouldKill) {
+        infoBox.innerHTML += `<br><div style="color:#00b894; font-weight:bold; font-size:14px;">✅ Điền bảng xong!<br>Truy vết tìm các món đồ được chọn...</div>`;
+        infoBox.scrollTop = infoBox.scrollHeight;
+        await sleep(800);
+        
+        let i = ksN, j = ksMaxW;
+        let pickedItems = [];
+        
+        while(i > 0 && j > 0) {
+            let cell = document.getElementById(`ks-cell-${i}-${j}`);
+            
+            // Nếu ô hiện tại khác với ô ngay phía trên nó -> Chứng tỏ tại đây đồ vật đã được nhặt
+            if(ksDP[i][j] !== ksDP[i-1][j]) {
+                pickedItems.push(i);
+                cell.style.background = "#00b894"; // Tô sáng ô trong bảng
+                cell.style.color = "white";
+                cell.style.boxShadow = "0 0 8px #00b894";
+                
+                // Tô rực rỡ cái thẻ Item phía trên cùng luôn cho trực quan!
+                let itemBox = document.getElementById(`ks-item-${i}`);
+                if(itemBox) {
+                    itemBox.style.background = "#00b894";
+                    itemBox.style.color = "#fff";
+                    itemBox.style.borderColor = "#00b894";
+                    itemBox.style.boxShadow = "0 0 10px #00b894";
+                }
+                
+                j -= ksWeight[i-1]; // Giảm sức chứa của Balo đi
+                i--;
+            } else {
+                cell.style.background = "rgba(255, 255, 255, 0.1)"; // Không nhặt thì tô mờ đi
+                i--;
+            }
+            await sleep(400);
         }
+        
+        pickedItems.reverse();
+        infoBox.innerHTML += `<br><div style="color:#55efc4; font-weight:bold; font-size: 15px; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 6px; text-align:center;">🎉 Max Value: ${ksDP[ksN][ksMaxW]}<br>Đã nhặt Item: [${pickedItems.join(', ')}]</div>`;
+        infoBox.scrollTop = infoBox.scrollHeight;
     }
-
-    infoBox.innerHTML = `<b>Kết quả: Chọn các món [${selectedItems.reverse().join(', ')}] -> Tổng giá trị: ${knapTable[n][W]}</b>`;
+    
     isRunning = false;
     if(btnRun) btnRun.disabled = false;
     if(btnPause) btnPause.disabled = true;
 }
-
 // --- LOGIC CHỌN VÀ LỌC ---
 function filterAlgorithms(type) {
     updateActiveButton(type);
@@ -901,6 +962,16 @@ function togglePause() {
 }
 // --- TẠO DỮ LIỆU ---
 function generateData() {
+    shouldKill = true;
+    isRunning = false;
+    isPaused = false;
+    const btnRun = document.getElementById('btn-run');
+    const btnPause = document.getElementById('btn-pause');
+    if (btnRun) btnRun.disabled = false;
+    if (btnPause) { 
+        btnPause.disabled = true; 
+        btnPause.innerText = "Tạm dừng"; 
+    }
     if (isRunning) return; 
     const titleEl = document.getElementById('algo-title');
     const currentAlgo = titleEl ? titleEl.innerText : "";
@@ -1397,147 +1468,184 @@ async function binarySearch() {
     btnRun.disabled = false;
     btnPause.disabled = true;
 }
-// ==========================================
-// 14. DP ON DAG (LAYOUT CĂN GIỮA & GỌN)
-// ==========================================
 function generateDAGDPUI() {
     const container = document.getElementById('visualizer-container');
     container.innerHTML = '';
-
-    // 1. Cấu hình các lớp (Layers)
-    // Sắp xếp số lượng node sao cho nhìn cân đối (Hình thoi: ít -> nhiều -> ít)
-    const layers = [
-        [0],            // Layer 0: 1 node (Start)
-        [1, 2],         // Layer 1: 2 node
-        [3, 4, 5],      // Layer 2: 3 node (Phình to ở giữa)
-        [6, 7],         // Layer 3: 2 node
-        [8]             // Layer 4: 1 node (End)
+    
+    // 1. Khởi tạo mảng
+    const n = 8; 
+    dagAdj = Array.from({length: n}, () => []);
+    dagWeight = {};
+    dagDP = new Array(n).fill(0);
+    dagTrace = new Array(n).fill(-1);
+    
+    // 2. TẠO TỌA ĐỘ NGẪU NHIÊN NHƯNG ÉP CHIỀU CAO LÙN XUỐNG
+    let positions = [
+        { id: 0, x: 80,  y: 180 }, // Tâm Y bây giờ là 180 thay vì 225
+        { id: 1, x: 230 + Math.random()*20, y: 100 + Math.random()*20 },
+        { id: 2, x: 230 + Math.random()*20, y: 260 + Math.random()*20 },
+        { id: 3, x: 420 + Math.random()*20, y: 80  + Math.random()*20 },
+        { id: 4, x: 420 + Math.random()*20, y: 280 + Math.random()*20 },
+        { id: 5, x: 610 + Math.random()*20, y: 100 + Math.random()*20 },
+        { id: 6, x: 610 + Math.random()*20, y: 260 + Math.random()*20 },
+        { id: 7, x: 780, y: 180 }
     ];
-    
-    const numNodes = 9;
-    dagAdj = Array.from({length: numNodes}, () => []);
-    dagNodes = [];
-    dagDP = new Array(numNodes).fill(0);
-    dagTrace = new Array(numNodes).fill(-1);
 
-    // 2. Tạo cạnh (Edges) - Chỉ nối tới lớp kế tiếp để tránh rối
-    for(let i=0; i < layers.length - 1; i++) {
-        let currLayer = layers[i];
-        let nextLayer = layers[i+1];
-        
-        currLayer.forEach(u => {
-            // Mỗi node u nối với 1 hoặc 2 node ở lớp kế tiếp
-            // Shuffle lớp kế tiếp để nối ngẫu nhiên nhưng vẫn gọn
-            let targets = [...nextLayer].sort(() => 0.5 - Math.random()); 
-            
-            // Đảm bảo ít nhất 1 kết nối
-            dagAdj[u].push(targets[0]); 
-            
-            // 50% cơ hội nối thêm node thứ 2 (nếu có)
-            if(targets.length > 1 && Math.random() > 0.5) {
-                dagAdj[u].push(targets[1]);
-            }
-        });
-    }
-    
-    // Đảm bảo node cuối cùng nhận được kết nối (fix lỗi node cô đơn)
-    // Duyệt ngược để chắc chắn các node lớp cuối có cha
-    for(let i = layers.length - 1; i > 0; i--) {
-        let currLayer = layers[i];
-        let prevLayer = layers[i-1];
-        currLayer.forEach(v => {
-            // Kiểm tra xem v có ai nối tới chưa
-            let hasParent = false;
-            for(let u of prevLayer) {
-                if(dagAdj[u].includes(v)) hasParent = true;
-            }
-            // Nếu chưa ai nối tới v, ép node đầu tiên của lớp trước nối vào
-            if(!hasParent) {
-                dagAdj[prevLayer[0]].push(v);
-            }
-        });
+    const cx = 430, cy = 180; // Giảm trục tâm Y xuống
+    for (let pos of positions) {
+        pos.angle = Math.atan2(pos.y - cy, pos.x - cx);
     }
 
-    // 3. Tính toán Tọa độ (CĂN GIỮA THẲNG HÀNG)
-    const containerWidth = container.offsetWidth || 800;
-    const containerHeight = 540;
+    // 3. TẠO CẠNH (GIẢM MẠNH SỐ LƯỢNG DÂY)
+    for (let u = 0; u < n - 1; u++) {
+        // Node 0 có 2 dây, các Node khác đa phần chỉ 1 dây (xác suất 20% ra 2 dây)
+        let numEdges = (u === 0) ? 2 : (Math.random() > 0.8 ? 2 : 1);
+        let possibleTargets = [];
+        
+        for (let v = u + 1; v < n; v++) {
+            if (v - u <= 2) possibleTargets.push(v); // Chỉ nối tới node gần (cách 1-2 bậc) để tránh dây bay ngang qua cả đồ thị
+        }
+        possibleTargets.sort(() => Math.random() - 0.5); 
+        
+        for (let i = 0; i < possibleTargets.length && i < numEdges; i++) {
+            let v = possibleTargets[i];
+            dagAdj[u].push(v);
+            dagWeight[`${u}-${v}`] = Math.floor(Math.random() * 9) + 1;
+        }
+    }
     
-    // Khoảng cách giữa các cột
-    const colSpacing = containerWidth / layers.length;
-    
-    let nodesHTML = '';
-    
-    layers.forEach((layer, layerIdx) => {
-        // Tọa độ X: Canh giữa cột
-        let x = layerIdx * colSpacing + (colSpacing / 2) - 25; // Trừ nửa width node (50/2)
-        
-        // Tọa độ Y: CĂN GIỮA THEO CHIỀU DỌC
-        const nodeSize = 50; 
-        const gap = 40; // Khoảng cách giữa các node trong cùng 1 cột
-        const totalLayerHeight = (layer.length * nodeSize) + ((layer.length - 1) * gap);
-        
-        // Điểm bắt đầu y sao cho cả nhóm node nằm giữa khung
-        let startY = (containerHeight - totalLayerHeight) / 2;
-        
-        layer.forEach((u, idx) => {
-            let y = startY + idx * (nodeSize + gap);
-            dagNodes[u] = {x, y}; // Lưu tọa độ (Góc trên trái của div)
-            
-            nodesHTML += `
-                <div id="dag-node-${u}" class="dag-node" style="left: ${x}px; top: ${y}px;">
-                    <span class="idx">${u}</span>
-                    <span class="val" id="dag-val-${u}">0</span>
-                </div>
-            `;
-        });
-    });
-
-    // 4. Vẽ Dây (SVG Lines) - Dùng tọa độ tâm
-    let linesHTML = '';
-    // Mũi tên định nghĩa trong SVG
-    linesHTML += `
-        <defs>
-            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="28" refY="3.5" orient="auto">
-                <polygon points="0 0, 10 3.5, 0 7" fill="#b2bec3" />
-            </marker>
-             <marker id="arrowhead-active" markerWidth="10" markerHeight="7" refX="28" refY="3.5" orient="auto">
-                <polygon points="0 0, 10 3.5, 0 7" fill="#e17055" />
-            </marker>
-             <marker id="arrowhead-path" markerWidth="10" markerHeight="7" refX="28" refY="3.5" orient="auto">
-                <polygon points="0 0, 10 3.5, 0 7" fill="#fdcb6e" />
-            </marker>
-        </defs>
-    `;
-
-    for (let u = 0; u < numNodes; u++) {
-        // Sắp xếp các cạnh để vẽ thứ tự đẹp
-        dagAdj[u].sort((a,b) => a-b);
-        
-        for (let v of dagAdj[u]) {
-            // Cộng 25 để lấy tâm node (vì node size = 50x50)
-            let x1 = dagNodes[u].x + 25; 
-            let y1 = dagNodes[u].y + 25;
-            let x2 = dagNodes[v].x + 25; 
-            let y2 = dagNodes[v].y + 25;
-            
-            linesHTML += `<line id="dag-edge-${u}-${v}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" 
-                stroke="#b2bec3" stroke-width="2" marker-end="url(#arrowhead)" />`;
+    // Đảm bảo đồ thị vẫn liên thông, không có node mồ côi
+    for (let v = 1; v < n; v++) {
+        let hasInEdge = false;
+        for (let u = 0; u < v; u++) {
+            if (dagAdj[u].includes(v)) hasInEdge = true;
+        }
+        if (!hasInEdge) {
+            let prev = v - 1;
+            dagAdj[prev].push(v);
+            dagWeight[`${prev}-${v}`] = Math.floor(Math.random() * 9) + 1;
         }
     }
 
+    // 4. VẼ DÂY VÀ TRỌNG SỐ 
+    let edgesHTML = "";
+    const NODE_RADIUS = 40;
+    const OFFSET = 5;
+
+    for (let u = 0; u < n; u++) {
+        for (let v of dagAdj[u]) {
+            let p1 = positions[u];
+            let p2 = positions[v];
+            
+            let dx = p2.x - p1.x;
+            let dy = p2.y - p1.y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist > 0) {
+                let r = NODE_RADIUS + OFFSET;
+                let startX = p1.x + (dx / dist) * r;
+                let startY = p1.y + (dy / dist) * r;
+                let endX = p2.x - (dx / dist) * r;
+                let endY = p2.y - (dy / dist) * r;
+
+                let nx = -dy / dist;
+                let ny = dx / dist;
+                
+                let curveOffset = 15;
+                if (u % 2 !== 0) curveOffset = -15; 
+                if (v - u > 2) curveOffset = (u % 2 === 0 ? 30 : -30); 
+                
+                let cx_curve = (startX + endX) / 2 + nx * curveOffset;
+                let cy_curve = (startY + endY) / 2 + ny * curveOffset;
+
+                edgesHTML += `<path id="dag-edge-${u}-${v}" d="M ${startX} ${startY} Q ${cx_curve} ${cy_curve} ${endX} ${endY}" fill="none" stroke="#b2bec3" stroke-width="2.5" marker-end="url(#arrowhead-dag)" style="transition: all 0.3s ease;" />`;
+                
+                // Trọng số né chồng chéo
+                let t = 0.35 + ((u + v) % 4) * 0.1; 
+                let textX = Math.pow(1 - t, 2) * startX + 2 * (1 - t) * t * cx_curve + Math.pow(t, 2) * endX;
+                let textY = Math.pow(1 - t, 2) * startY + 2 * (1 - t) * t * cy_curve + Math.pow(t, 2) * endY;
+                
+                let pushOut = curveOffset > 0 ? -12 : 12;
+                textX += nx * pushOut;
+                textY += ny * pushOut;
+
+                edgesHTML += `<text x="${textX}" y="${textY + 5}" fill="#74b9ff" font-size="16" font-weight="bold" text-anchor="middle" style="pointer-events: none; text-shadow: 0px 0px 4px rgba(0,0,0,1), 0px 0px 8px rgba(0,0,0,0.8);">${dagWeight[`${u}-${v}`]}</text>`;
+            }
+        }
+    }
+
+    // 5. VẼ CÁC NODE VÀ ĐẨY BẢNG DP RA NGOÀI (NÉ DÂY)
+let nodesHTML = "";
+    for (let i = 0; i < n; i++) {
+        let pos = positions[i];
+        
+        let labelDist = 95; 
+        
+        // Mặc định các Node văng ra xung quanh theo vòng tròn
+        let fx = Math.cos(pos.angle) * labelDist - 50; 
+        let fy = Math.sin(pos.angle) * labelDist - 21; 
+
+        // 🌟 NẾU LÀ NODE 0 HOẶC NODE CUỐI CÙNG (7) -> ÉP BẢNG XUỐNG DƯỚI NODE
+        if (i === 0 || i === n - 1) {
+            fx = -50; // Căn chính giữa theo chiều ngang (100 / 2)
+            fy = 45;  // Đẩy thẳng xuống dưới (cách tâm node 45px)
+        }
+
+        nodesHTML += `
+            <g transform="translate(${pos.x}, ${pos.y})">
+                <circle id="dag-node-circle-${i}" class="dag-node" r="40" fill="#636e72" stroke="#b2bec3" stroke-width="2.5" style="transition: all 0.3s ease;" />
+                <text x="0" y="8" text-anchor="middle" fill="white" font-weight="bold" font-size="24" style="pointer-events: none;">${i}</text>
+                
+                <foreignObject x="${fx}" y="${fy}" width="100" height="42" style="overflow: visible;">
+                    <div id="dag-lbl-${i}" style="background: rgba(0,0,0,0.85); color: #dfe6e9; font-size: 16px; text-align: center; line-height: 34px; font-family: monospace; border-radius: 8px; padding: 2px 6px; border: 1.5px solid #777; box-shadow: 0 4px 8px rgba(0,0,0,0.6); transition: all 0.3s;">
+                        dp: <span id="dag-val-${i}" style="color: #fdcb6e; font-weight: bold; font-size: 20px;">0</span>
+                    </div>
+                </foreignObject>
+            </g>
+        `;
+    }
+    // 6. RENDER LAYOUT (CHIỀU CAO ĐÃ ĐƯỢC GIỚI HẠN)
     container.innerHTML = `
-        <div class="dag-layout">
-            <svg class="dag-svg-layer">${linesHTML}</svg>
-            ${nodesHTML}
-            <div id="dag-info" class="dag-info-box">
-                Đã tạo DAG cân bằng.<br>Bài toán: Tìm đường đi dài nhất (Longest Path).
+    <style>
+        .dag-node.active {
+            fill: #d63031 !important;     
+            stroke: #ff7675 !important;
+            filter: drop-shadow(0 0 10px #ff7675);
+        }
+        .dag-node.visited {
+            fill: #0984e3 !important;     
+            stroke: #74b9ff !important;
+        }
+    </style>
+    <div class="dag-layout" style="display: flex; gap: 10px; height: 400px; width: 100%; align-items: stretch; padding: 2px;"> 
+        
+        <div class="graph-area" style="flex: 1; background: #2d3436; border-radius: 8px; border: 1px solid #636e72; position: relative; display: flex; align-items: center; justify-content: center;">
+            <svg width="100%" height="100%" viewBox="-20 -20 880 400" preserveAspectRatio="xMidYMid meet" style="overflow: visible;">
+                <defs>
+                    <marker id="arrowhead-dag" markerWidth="9" markerHeight="6" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 9 3, 0 6" fill="#b2bec3" />
+                    </marker>
+                </defs>
+                ${edgesHTML}
+                ${nodesHTML}
+            </svg>
+        </div>
+
+        <div class="dag-sidebar" style="width: 220px; display: flex; flex-direction: column; gap: 6px; padding: 10px; background: #2d3436; border: 1px solid #636e72; border-radius: 8px; box-sizing: border-box; height: 100%;">
+            <h4 style="color:#74b9ff; text-align:center; margin: 0 0 4px 0; border-bottom:1px solid #555; padding-bottom:6px; font-size: 16px;">DP on DAG Control</h4>
+            
+            <div id="dag-info" style="flex: 1; background:rgba(0,0,0,0.3); color:#fdcb6e; padding:10px; border-radius:6px; font-size:14px; overflow-y: auto; line-height: 1.5; border: 1px solid #444; scrollbar-width: thin;">
+                Đã tạo đồ thị ngẫu nhiên.<br>
+                Mục tiêu: Tìm đường đi dài nhất.<br><br>
+                Sẵn sàng chạy!
             </div>
         </div>
+    </div>
     `;
     
-    // Lưu thứ tự Topo (chính là thứ tự layer từ trái qua phải)
+    // Lưu Topo Order
     dagTopoOrder = [];
-    layers.forEach(l => dagTopoOrder.push(...l));
+    for(let i=0; i<n; i++) dagTopoOrder.push(i); 
 }
 // --- BIẾN TOÀN CỤC SEGMENT TREE ---
 let stArr = [];      // Mảng ban đầu   // Mảng lưu giá trị cây (Sum/Min/Max)
@@ -1664,7 +1772,7 @@ function generateLISUI() {
                 </div>
             </div>
 
-            <div style="height: 100px; background: #2d3436; border: 1px solid #636e72; border-radius: 8px; padding: 10px; overflow-y: auto; color: #fdcb6e; font-family: monospace;" id="lis-info">
+            <div style="height: 40px; background: #2d3436; border: 1px solid #636e72; border-radius: 8px; padding: 10px; overflow-y: auto; color: #fdcb6e; font-family: monospace;" id="lis-info">
                 Dữ liệu đã tạo. Giá trị ban đầu của DP[i] = 1.
             </div>
         </div>
@@ -1975,7 +2083,7 @@ function generateDiffOnlyUI() {
             </div>
 
             <div style="font-size:16px; color:#b2bec3">
-                ⬇️ Tính Mảng Hiệu: $D[i] = A[i] - A[i-1]$ ⬇️
+                ⬇️ Tính Mảng Hiệu: D[i] = A[i] - A[i-1] ⬇️
             </div>
 
             <div class="pd-row-wrapper">
@@ -1991,7 +2099,7 @@ function generateDiffOnlyUI() {
             </div>
 
             <div style="font-size:16px; color:#b2bec3; margin-top:10px;">
-                ⬇️ Tính Prefix Sum từ A: $S[i] = S[i-1] + A[i]$ ⬇️
+                ⬇️ Tính Prefix Sum từ A: S[i] = S[i-1] + A[i] ⬇️
             </div>
 
             <div class="pd-row-wrapper">
@@ -2347,85 +2455,182 @@ async function runDiffOnly() {
 function generateSieveUI() {
     const container = document.getElementById('visualizer-container');
     container.innerHTML = '';
-    container.style.flexDirection = "column";
-    container.style.justifyContent = "flex-start";
-    const title = document.createElement('h3');
-    title.innerText = "Tìm số nguyên tố từ 2 đến 100";
-    title.style.marginBottom = "15px";
-    title.style.color = "white";
-    container.appendChild(title);
-    const grid = document.createElement('div');
-    grid.className = 'sieve-grid';
-    grid.id = 'sieve-grid';
-    for (let i = 2; i <= 100; i++) {
-        const node = document.createElement('div');
-        node.className = 'sieve-node';
-        node.id = `sieve-num-${i}`;
-        node.innerText = i;
-        grid.appendChild(node);
+    
+    // Đặt N = 100 để hiển thị lưới 10x10
+    sieveN = 100; 
+    sieveIsPrime = new Array(sieveN + 1).fill(true);
+    sieveIsPrime[0] = sieveIsPrime[1] = false;
+
+    // TẠO LƯỚI SỐ (Grid) - Đã giảm gap xuống 6px
+    let gridHTML = `<div style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; width: 100%; max-width: 450px; margin: 0 auto;">`;
+    
+    for(let i = 2; i <= sieveN; i++) {
+        // Thu nhỏ kích thước ô: height 30px, font-size 14px, viền mỏng 1px
+        gridHTML += `
+            <div id="sieve-cell-${i}" style="
+                background: #2d3436; 
+                border: 1px solid #636e72; 
+                border-radius: 4px; 
+                color: #dfe6e9; 
+                font-size: 14px; 
+                font-weight: bold; 
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                height: 30px; 
+                transition: all 0.3s;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            ">
+                ${i}
+            </div>
+        `;
     }
-    container.appendChild(grid);
-    const info = document.createElement('div');
-    info.id = 'sieve-info';
-    info.style.marginTop = "20px";
-    info.style.fontSize = "18px";
-    info.style.color = "#fbbf24";
-    info.innerText = "Sẵn sàng...";
-    container.appendChild(info);
+    gridHTML += `</div>`;
+
+    // RENDER LAYOUT (Tăng nhẹ height lên 460px để chứa đủ 10 hàng)
+    container.innerHTML = `
+    <div class="sieve-layout" style="display: flex; gap: 12px; height: 400px; width: 100%; align-items: stretch; padding: 2px;">
+        
+        <div class="grid-area" style="flex: 1; background: #2d3436; border-radius: 8px; border: 1px solid #636e72; padding: 15px; display: flex; align-items: center; justify-content: center; overflow: auto; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);">
+            ${gridHTML}
+        </div>
+
+        <div class="sieve-sidebar" style="width: 250px; display: flex; flex-direction: column; gap: 8px; padding: 10px; background: #2d3436; border: 1px solid #636e72; border-radius: 8px; box-sizing: border-box;">
+            <h4 style="color:#74b9ff; text-align:center; margin: 0 0 4px 0; border-bottom:1px solid #555; padding-bottom:6px; font-size: 16px;">Sieve of Eratosthenes</h4>
+            
+            <div style="display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: #b2bec3; background: #1e272e; padding: 10px; border-radius: 6px; border: 1px solid #555;">
+                <div style="display:flex; align-items:center; gap:5px;"><span style="display:inline-block; width:12px; height:12px; background:#00b894; border-radius:3px;"></span> Số Nguyên Tố</div>
+                <div style="display:flex; align-items:center; gap:5px;"><span style="display:inline-block; width:12px; height:12px; background:#d63031; border-radius:3px;"></span> Đang gạch bỏ</div>
+                <div style="display:flex; align-items:center; gap:5px;"><span style="display:inline-block; width:12px; height:12px; background:#1e272e; border:1px solid #636e72; border-radius:3px;"></span> Hợp số (Đã gạch)</div>
+            </div>
+            
+            <div id="sieve-info" style="flex: 1; background:rgba(0,0,0,0.3); color:#fdcb6e; padding:10px; border-radius:6px; font-size:13px; overflow-y: auto; line-height: 1.5; border: 1px solid #444; margin-top: 5px; scrollbar-width: thin;">
+                Đã tạo mảng số từ 2 đến ${sieveN}.<br>
+                Mặc định giả sử tất cả đều là số nguyên tố.<br><br>
+                Sẵn sàng chạy!
+            </div>
+        </div>
+    </div>
+    `;
 }
 async function runSieve() {
-    if(isRunning) return;
-    isRunning = true;
-    shouldKill = false;
-    isPaused = false;
-    btnRun.disabled = true;
-    btnPause.disabled = false;
+    if(typeof isRunning !== 'undefined' && isRunning) {
+        shouldKill = true;
+        isRunning = false;
+        await sleep(100);
+    }
+    const btnRun = document.getElementById('btn-run');
+    const btnPause = document.getElementById('btn-pause');
     const infoBox = document.getElementById('sieve-info');
-    const n = 100;
-    let isPrime = new Array(n + 1).fill(true);
-    for (let p = 2; p * p <= n; p++) {
-        if (shouldKill) return;
-        if (isPrime[p]) {
-            const pNode = document.getElementById(`sieve-num-${p}`);
-            pNode.classList.add('current');
-            infoBox.innerText = `Đang xét số P = ${p}. Là số nguyên tố!`;
-            infoBox.style.color = "#3b82f6";
-            await sleep();
-            if (shouldKill) return;
-            infoBox.innerText = `Loại bỏ các bội số của ${p}: ${2*p}, ${3*p},...`;
-            for (let i = p * p; i <= n; i += p) {
-                if (shouldKill) return;
-                isPrime[i] = false; 
-                const multipleNode = document.getElementById(`sieve-num-${i}`);
-                multipleNode.classList.add('not-prime');
-                multipleNode.style.transform = "scale(0.8)";
-                await sleep(delayTime / 2); 
-                multipleNode.style.transform = "scale(1)";
-            }
-            pNode.classList.remove('current');
-            pNode.classList.add('prime');
-            await sleep();
+    
+    isRunning = true;
+    isPaused = false;
+    shouldKill = false;
+    if(btnRun) btnRun.disabled = true;
+    if(btnPause) { btnPause.disabled = false; btnPause.innerText = "Tạm dừng"; }
+    
+    // Reset mảng về true
+    sieveIsPrime.fill(true);
+    sieveIsPrime[0] = sieveIsPrime[1] = false;
+    
+    for(let i = 2; i <= sieveN; i++) {
+        let cell = document.getElementById(`sieve-cell-${i}`);
+        if(cell) {
+            cell.style.background = "#2d3436";
+            cell.style.color = "#dfe6e9";
+            cell.style.textDecoration = "none";
+            cell.style.opacity = "1";
+            cell.style.borderColor = "#636e72";
         }
     }
-
-    // Duyệt lại một lượt để tô màu xanh cho các số nguyên tố còn lại (lớn hơn sqrt(n))
-    infoBox.innerText = "Hoàn tất các bước sàng. Tô màu các số còn lại...";
-    for (let i = 2; i <= n; i++) {
-        if (isPrime[i]) {
-            const node = document.getElementById(`sieve-num-${i}`);
-            if (!node.classList.contains('prime')) {
-                node.classList.add('prime');
-                await sleep(50); // Hiệu ứng tô dần dần cho đẹp
+    
+    infoBox.innerHTML = `Bắt đầu sàng các số từ 2 đến $\\sqrt{${sieveN}}$...<br><br>`;
+    
+    // --- VÒNG LẶP SÀNG ERATOSTHENES ---
+    for (let p = 2; p * p <= sieveN; p++) {
+        if(shouldKill) break;
+        while(isPaused) await sleep(100);
+        
+        if (sieveIsPrime[p]) {
+            let pCell = document.getElementById(`sieve-cell-${p}`);
+            
+            // Highlight số Nguyên tố gốc đang dùng để sàng (Màu Vàng)
+            pCell.style.background = "#fdcb6e";
+            pCell.style.color = "#2d3436";
+            pCell.style.borderColor = "#ffeaa7";
+            pCell.style.transform = "scale(1.1)";
+            
+            infoBox.innerHTML += `<div>👉 <b>${p}</b> là Nguyên tố.<br><span style="color:#ff7675">Sàng các bội số: ${p}&times;${p}, ${p}&times;${p+1},...</span></div>`;
+            infoBox.scrollTop = infoBox.scrollHeight;
+            await sleep(800);
+            
+            // Sàng các bội số bắt đầu từ p*p
+            for (let i = p * p; i <= sieveN; i += p) {
+                if(shouldKill) break;
+                while(isPaused) await sleep(100);
+                
+                if (sieveIsPrime[i]) {
+                    sieveIsPrime[i] = false;
+                    
+                    let iCell = document.getElementById(`sieve-cell-${i}`);
+                    
+                    // Chớp đỏ để báo hiệu bị gạch bỏ
+                    iCell.style.background = "#d63031";
+                    iCell.style.color = "#fff";
+                    iCell.style.borderColor = "#ff7675";
+                    iCell.style.transform = "scale(1.1)";
+                    
+                    infoBox.innerHTML += `<div>&nbsp;&nbsp; ❌ Gạch <b>${i}</b></div>`;
+                    infoBox.scrollTop = infoBox.scrollHeight;
+                    await sleep(400);
+                    
+                    // Chuyển sang trạng thái "Đã gạch" (Mờ đi + có đường gạch ngang)
+                    iCell.style.background = "#1e272e";
+                    iCell.style.color = "#636e72";
+                    iCell.style.borderColor = "#353b48";
+                    iCell.style.textDecoration = "line-through";
+                    iCell.style.opacity = "0.6";
+                    iCell.style.transform = "scale(1)";
+                }
             }
+            
+            // Xong vòng lặp, chốt p là số nguyên tố (Xanh lá)
+            pCell.style.background = "#00b894";
+            pCell.style.color = "#fff";
+            pCell.style.borderColor = "#55efc4";
+            pCell.style.transform = "scale(1)";
+            await sleep(500);
         }
     }
-
-    infoBox.innerText = "Hoàn thành! Các ô màu xanh lá là số nguyên tố.";
-    infoBox.style.color = "#10b981";
-
+    
+    // --- HOÀN THÀNH: TÔ XANH CÁC SỐ NGUYÊN TỐ CÒN LẠI ---
+    if(!shouldKill) {
+        infoBox.innerHTML += `<br><div style="color:#00b894; font-weight:bold;">✅ Sàng xong!<br>Các số chưa bị gạch là Số Nguyên Tố.</div>`;
+        infoBox.scrollTop = infoBox.scrollHeight;
+        await sleep(500);
+        
+        let primes = [];
+        for (let i = 2; i <= sieveN; i++) {
+            if (sieveIsPrime[i]) {
+                primes.push(i);
+                let cell = document.getElementById(`sieve-cell-${i}`);
+                if (cell && cell.style.background !== "rgb(0, 184, 148)" /* #00b894 */) {
+                    cell.style.background = "#00b894";
+                    cell.style.color = "#fff";
+                    cell.style.borderColor = "#55efc4";
+                    cell.style.boxShadow = "0 0 10px rgba(0, 184, 148, 0.6)";
+                    await sleep(100); // Hiệu ứng tô xanh lướt qua nhanh
+                }
+            }
+        }
+        
+        infoBox.innerHTML += `<div style="margin-top: 8px; font-size:12px; color:#55efc4; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 6px;">[${primes.join(', ')}]</div>`;
+        infoBox.scrollTop = infoBox.scrollHeight;
+    }
+    
     isRunning = false;
-    btnRun.disabled = false;
-    btnPause.disabled = true;
+    if(btnRun) btnRun.disabled = false;
+    if(btnPause) btnPause.disabled = true;
 }
 //--- FENWICK TREE (BINARY INDEXED TREE) ---
 let fenwickArr = []; 
@@ -2563,7 +2768,7 @@ function generateDSUUI() {
     }
     let html = `
         <div class="dsu-container">
-            <h3 style="color:#74b9ff">DSU: Union by Size & Path Compression</h3>
+            <h3 style="color:#74b9ff">DSU:  Union by Size & Path Compression</h3>
             
             <div class="edge-queue" id="dsu-edges">
                 ${dsuEdges.map((e, i) => `<div id="edge-${i}" class="edge-item">Union(${e[0]}, ${e[1]})</div>`).join('')}
@@ -2582,7 +2787,7 @@ function generateDSUUI() {
                 `).join('')}
             </div>
 
-            <div id="dsu-info" style="margin-top:20px; padding:10px; background:#dfe6e9; color:#2d3436; 
+            <div id="dsu-info" style="margin-top:5px; padding:10px; background:#dfe6e9; color:#2d3436; 
                 border-radius:5px; font-weight:bold; text-align: center; min-height: 60px; min-width: 300px;">
                 Sẵn sàng! Size ban đầu của mỗi tập hợp là 1.
             </div>
@@ -2622,126 +2827,144 @@ async function findVisual(u, infoBox, context) {
 // RUNNER CHO DP ON DAG (Pause/Resume OK)
 // ==========================================
 async function runDAGDP() {
-    if(typeof isRunning !== 'undefined' && isRunning) { shouldKill = true; isRunning = false; await sleep(100); }
-    
+    if(typeof isRunning !== 'undefined' && isRunning) {
+        shouldKill = true;
+        isRunning = false;
+        await sleep(100);
+    }
     const btnRun = document.getElementById('btn-run');
     const btnPause = document.getElementById('btn-pause');
     const infoBox = document.getElementById('dag-info');
     
-    if (!dagNodes || dagNodes.length === 0) return;
-
-    isRunning = true; isPaused = false; shouldKill = false;
-    if(btnRun) btnRun.disabled = true; 
+    if (!dagAdj || dagAdj.length === 0) return;
+    const n = dagAdj.length;
+    
+    isRunning = true;
+    isPaused = false;
+    shouldKill = false;
+    if(btnRun) btnRun.disabled = true;
     if(btnPause) { btnPause.disabled = false; btnPause.innerText = "Tạm dừng"; }
 
     // Reset UI
     dagDP.fill(0);
     dagTrace.fill(-1);
-    for(let i=0; i<dagNodes.length; i++) {
-        let node = document.getElementById(`dag-node-${i}`);
+    for(let i=0; i<n; i++) {
+        let node = document.getElementById(`dag-node-circle-${i}`);
         let val = document.getElementById(`dag-val-${i}`);
-        if(node) { node.className = "dag-node"; }
-        if(val) val.innerText = "0";
+        if(node) {
+            node.classList.remove('active', 'visited');
+            node.setAttribute('fill', '#636e72');
+            node.setAttribute('stroke', '#b2bec3');
+        }
+        if(val) {
+            val.innerText = "0";
+            val.style.color = "#fdcb6e";
+        }
     }
-    // Reset SVG lines
-    document.querySelectorAll('.dag-svg-layer line').forEach(l => {
-        l.setAttribute('stroke', '#b2bec3');
-        l.setAttribute('stroke-width', '2');
-        l.setAttribute('marker-end', 'url(#arrowhead)');
-    });
+    
+    // Reset SVG paths
+    for (let u = 0; u < n; u++) {
+        for (let v of dagAdj[u]) {
+            let edge = document.getElementById(`dag-edge-${u}-${v}`);
+            if(edge) {
+                edge.setAttribute('stroke', '#b2bec3');
+                edge.setAttribute('stroke-width', '2.5');
+            }
+        }
+    }
+    
+    infoBox.innerHTML = `Bắt đầu tính DP theo thứ tự Topo (trái qua phải)...<br><br>`;
 
-    infoBox.innerHTML = "Duyệt theo thứ tự Topo (Trái -> Phải)...";
-    await sleep(800);
-
-    // --- LOOP CHÍNH ---
+    // --- VÒNG LẶP DP CHÍNH ---
     for (let u of dagTopoOrder) {
         if(shouldKill) break;
+        while(isPaused) await sleep(100);
+
+        // Bật màu đỏ cho Node đang xét
+        let uCircle = document.getElementById(`dag-node-circle-${u}`);
+        if(uCircle) uCircle.classList.add('active');
         
-        let nodeU = document.getElementById(`dag-node-${u}`);
-        if(nodeU) nodeU.classList.add("dag-active");
-        
-        infoBox.innerHTML = `Đang xét <b>Node ${u}</b> (Giá trị hiện tại: ${dagDP[u]})`;
+        infoBox.innerHTML += `<div>👉 Xét <b>Node ${u}</b> (DP = ${dagDP[u]})</div>`;
+        infoBox.scrollTop = infoBox.scrollHeight;
         await sleep(600);
 
+        // Xét tất cả các đỉnh lân cận
         for (let v of dagAdj[u]) {
-            if(shouldKill) { isRunning=false; if(btnRun) btnRun.disabled=false; return; }
-            while(isPaused) { infoBox.innerHTML = "Đang tạm dừng..."; await sleep(100); }
+            if(shouldKill) break;
+            while(isPaused) await sleep(100);
 
             let edge = document.getElementById(`dag-edge-${u}-${v}`);
-            let nodeV = document.getElementById(`dag-node-${v}`);
+            let w = dagWeight[`${u}-${v}`];
             
+            // Highlight dây đang duyệt thành màu cam
             if(edge) {
-                edge.setAttribute('stroke', '#e17055'); 
+                edge.setAttribute('stroke', '#fdcb6e'); 
                 edge.setAttribute('stroke-width', '4');
-                edge.setAttribute('marker-end', 'url(#arrowhead-active)');
             }
-            if(nodeV) nodeV.classList.add("dag-neighbor");
 
-            infoBox.innerHTML = `Kiểm tra cạnh ${u} → ${v}.<br>DP[${v}] (${dagDP[v]}) < DP[${u}]+1 (${dagDP[u]+1}) ?`;
-            await sleep(800);
+            let newDist = dagDP[u] + w;
+            infoBox.innerHTML += `<div>&nbsp;&nbsp; ↳ Tới <b>${v}</b> (Cạnh = ${w}): ${dagDP[u]} + ${w} = ${newDist}</div>`;
+            infoBox.scrollTop = infoBox.scrollHeight;
+            await sleep(600);
 
-            if (dagDP[v] < dagDP[u] + 1) {
-                dagDP[v] = dagDP[u] + 1;
+            // Công thức Relaxation: dp[v] = max(dp[v], dp[u] + weight)
+            if (newDist > dagDP[v]) {
+                dagDP[v] = newDist;
                 dagTrace[v] = u;
                 
                 let valV = document.getElementById(`dag-val-${v}`);
-                if(valV) valV.innerText = dagDP[v];
+                if(valV) {
+                    valV.innerText = newDist;
+                    valV.style.color = "#00b894"; // Chớp màu xanh lá để nhấn mạnh
+                }
                 
-                nodeV.classList.remove("dag-neighbor");
-                nodeV.classList.add("dag-finished");
-                infoBox.innerHTML += ` -> <b>Cập nhật!</b>`;
-                await sleep(800);
-                nodeV.classList.remove("dag-finished");
+                infoBox.innerHTML += `<div>&nbsp;&nbsp; <span style="color:#00b894">Cập nhật DP[${v}] = ${newDist}</span></div>`;
             } else {
-                infoBox.innerHTML += ` -> Không cập nhật.`;
+                infoBox.innerHTML += `<div>&nbsp;&nbsp; <span style="color:#b2bec3">Giữ nguyên DP[${v}] = ${dagDP[v]}</span></div>`;
             }
-
-            // Trả màu dây
+            infoBox.scrollTop = infoBox.scrollHeight;
+            
+            await sleep(600);
+            
+            // Trả lại dây màu xám bình thường
             if(edge) {
-                edge.setAttribute('stroke', '#b2bec3'); 
-                edge.setAttribute('stroke-width', '2');
-                edge.setAttribute('marker-end', 'url(#arrowhead)');
+                edge.setAttribute('stroke', '#b2bec3');
+                edge.setAttribute('stroke-width', '2.5');
             }
-            if(nodeV) nodeV.classList.remove("dag-neighbor");
-            await sleep(300);
+            let valV = document.getElementById(`dag-val-${v}`);
+            if(valV) valV.style.color = "#fdcb6e"; 
         }
 
-        if(nodeU) {
-            nodeU.classList.remove("dag-active");
-            nodeU.classList.add("dag-finished");
+        // Xét xong, đổi node u thành màu xanh dương
+        if(uCircle) {
+            uCircle.classList.remove('active');
+            uCircle.classList.add('visited'); 
         }
-        await sleep(400);
     }
 
-    // --- TRUY VẾT ---
-    infoBox.innerHTML = "Hoàn tất. Tìm đường đi dài nhất (Màu vàng)...";
-    
-    let maxLen = -1, endNode = -1;
-    for(let i=0; i<dagNodes.length; i++) {
-        if(dagDP[i] > maxLen) { maxLen = dagDP[i]; endNode = i; }
-    }
-
-    let curr = endNode;
-    while(curr !== -1) {
-        if(shouldKill) break;
-        let node = document.getElementById(`dag-node-${curr}`);
-        if(node) node.classList.add("dag-path");
-
-        let prev = dagTrace[curr];
-        if (prev !== -1) {
+    // TÌM VÀ TRUY VẾT KẾT QUẢ CUỐI CÙNG
+    if(!shouldKill) {
+        let maxNode = 0;
+        for(let i=1; i<n; i++) {
+            if(dagDP[i] > dagDP[maxNode]) maxNode = i;
+        }
+        infoBox.innerHTML += `<br><div style="color:#00b894; font-weight:bold;">✅ Hoàn thành! Đường đi dài nhất kết thúc tại Node ${maxNode} (Dài = ${dagDP[maxNode]}).</div>`;
+        infoBox.scrollTop = infoBox.scrollHeight;
+        
+        // Truy ngược lại đường đi (Backtracking) và highlight ĐỎ RỰC
+        let curr = maxNode;
+        while(dagTrace[curr] !== -1) {
+            let prev = dagTrace[curr];
             let edge = document.getElementById(`dag-edge-${prev}-${curr}`);
             if(edge) {
-                edge.setAttribute('stroke', '#fdcb6e');
+                edge.setAttribute('stroke', '#d63031');
                 edge.setAttribute('stroke-width', '5');
-                // Đổi đầu mũi tên sang màu vàng
-                edge.setAttribute('marker-end', 'url(#arrowhead-path)');
             }
+            curr = prev;
+            await sleep(300);
         }
-        curr = prev;
-        await sleep(500);
     }
 
-    infoBox.innerHTML = `<b>Kết quả: Đường đi dài nhất = ${maxLen} (Kết thúc ở Node ${endNode})</b>`;
     isRunning = false;
     if(btnRun) btnRun.disabled = false;
     if(btnPause) btnPause.disabled = true;
@@ -2754,148 +2977,177 @@ let lcsTable = []; // Mảng 2 chiều lưu giá trị
 // --- HÀM TẠO GIAO DIỆN LCS ---
 function generateLCSUI() {
     const container = document.getElementById('visualizer-container');
+    container.innerHTML = '';
     
-    // 1. Tạo chuỗi ngẫu nhiên
-    const chars = "ABCDEF"; 
-    // Tạo chuỗi ngắn (6-8 ký tự) để bảng không bị quá to
-    lcsStr1 = Array.from({length: 7}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    lcsStr2 = Array.from({length: 6}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const chars = "ACGT";
+    const m = Math.floor(Math.random() * 2) + 6; 
+    const n = Math.floor(Math.random() * 2) + 6; 
+    lcsStr1 = Array.from({length: m}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    lcsStr2 = Array.from({length: n}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
     
-    const rows = lcsStr1.length + 2; // +1 cho tiêu đề, +1 cho hàng rỗng 0
-    const cols = lcsStr2.length + 2;
-
-    // 2. Tạo HTML Grid
-    // Header dòng đầu: Rỗng, Rỗng, Ký tự Str2...
-    let gridHTML = '';
+    lcsDP = Array.from({length: m + 1}, () => new Array(n + 1).fill(0));
     
-    // Hàng tiêu đề Str2
-    gridHTML += `<div class="dp-header-cell"></div><div class="dp-header-cell">Ø</div>`;
-    for(let c of lcsStr2) gridHTML += `<div class="dp-header-cell">${c}</div>`;
-
-    // Các hàng dữ liệu
-    for(let i = 0; i <= lcsStr1.length; i++) {
-        // Cột tiêu đề Str1 (bên trái)
-        let rowLabel = (i === 0) ? "Ø" : lcsStr1[i-1];
-        gridHTML += `<div class="dp-header-cell">${rowLabel}</div>`;
-        
-        // Các ô dữ liệu
-        for(let j = 0; j <= lcsStr2.length; j++) {
-            gridHTML += `<div id="lcs-cell-${i}-${j}" class="dp-cell">0</div>`;
-        }
+    // GIẢM FONT SIZE CHUNG XUỐNG 15px
+    let tableHTML = `<table style="border-collapse: collapse; margin: 0 auto; color: #dfe6e9; font-family: monospace; font-size: 15px;">`;
+    
+    // GIẢM PADDING XUỐNG 8px (Cũ là 12px)
+    tableHTML += `<tr><th style="padding: 8px; border:none;"></th><th style="padding: 8px; border: 1px solid #636e72; background: #2d3436; color: #b2bec3;">∅</th>`;
+    for(let j=0; j<n; j++) {
+        tableHTML += `<th id="lcs-col-head-${j+1}" style="padding: 8px; border: 1px solid #636e72; background: #353b48; color: #74b9ff; font-size: 16px; transition: all 0.3s;">${lcsStr2[j]}</th>`;
     }
-
+    tableHTML += `</tr>`;
+    
+    tableHTML += `<tr><th style="padding: 8px; border: 1px solid #636e72; background: #2d3436; color: #b2bec3;">∅</th>`;
+    for(let j=0; j<=n; j++) {
+        tableHTML += `<td id="lcs-cell-0-${j}" style="padding: 8px; border: 1px solid #636e72; text-align: center; font-weight: bold; color: #636e72; background: rgba(0,0,0,0.2);">0</td>`;
+    }
+    tableHTML += `</tr>`;
+    
+    for(let i=1; i<=m; i++) {
+        tableHTML += `<tr><th id="lcs-row-head-${i}" style="padding: 8px; border: 1px solid #636e72; background: #353b48; color: #ff7675; font-size: 16px; transition: all 0.3s;">${lcsStr1[i-1]}</th>`;
+        tableHTML += `<td id="lcs-cell-${i}-0" style="padding: 8px; border: 1px solid #636e72; text-align: center; font-weight: bold; color: #636e72; background: rgba(0,0,0,0.2);">0</td>`;
+        
+        for(let j=1; j<=n; j++) {
+            // GIẢM WIDTH/HEIGHT CỦA Ô XUỐNG 32px (Cũ là 45px)
+            tableHTML += `<td id="lcs-cell-${i}-${j}" style="padding: 8px; border: 1px solid #636e72; text-align: center; font-weight: bold; transition: all 0.3s; width: 32px; height: 32px; color: #dfe6e9;"></td>`;
+        }
+        tableHTML += `</tr>`;
+    }
+    tableHTML += `</table>`;
+    
+    // GIẢM CHIỀU CAO HEIGHT TỪ 500px XUỐNG 400px
     container.innerHTML = `
-        <div class="dp-2d-layout">
-            <div style="text-align:center; color:white; font-weight:bold;">
-                Chuỗi 1: <span style="color:#fdcb6e">${lcsStr1}</span> &nbsp;|&nbsp; 
-                Chuỗi 2: <span style="color:#fdcb6e">${lcsStr2}</span>
+    <div class="lcs-layout" style="display: flex; gap: 12px; height: 400px; width: 100%; align-items: stretch; padding: 2px;">
+        <div class="table-area" style="flex: 1; background: #2d3436; border-radius: 8px; border: 1px solid #636e72; padding: 10px; display: flex; align-items: center; justify-content: center; overflow: auto; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);">
+            ${tableHTML}
+        </div>
+        
+        <div class="lcs-sidebar" style="width: 260px; display: flex; flex-direction: column; gap: 8px; padding: 10px; background: #2d3436; border: 1px solid #636e72; border-radius: 8px; box-sizing: border-box;">
+            <h4 style="color:#74b9ff; text-align:center; margin: 0 0 4px 0; border-bottom:1px solid #555; padding-bottom:6px; font-size: 16px;">LCS Control</h4>
+            
+            <div style="font-size: 15px; color: #dfe6e9; background: #1e272e; padding: 10px; border-radius: 6px; border: 1px solid #555;">
+                <div style="margin-bottom: 6px;"><b>S1:</b> <span style="color:#ff7675; font-weight:bold; letter-spacing: 2px;">${lcsStr1}</span></div>
+                <div><b>S2:</b> <span style="color:#74b9ff; font-weight:bold; letter-spacing: 2px;">${lcsStr2}</span></div>
             </div>
-            <div class="dp-matrix-area">
-                <div class="dp-matrix" style="grid-template-columns: repeat(${cols}, 40px);">
-                    ${gridHTML}
-                </div>
-            </div>
-            <div id="lcs-info" class="frog-log"> Đã tạo bảng LCS. Hàng/Cột Ø đại diện cho chuỗi rỗng.
+            
+            <div id="lcs-info" style="flex: 1; background:rgba(0,0,0,0.3); color:#fdcb6e; padding:10px; border-radius:6px; font-size:13px; overflow-y: auto; line-height: 1.5; border: 1px solid #444; margin-top: 5px; scrollbar-width: thin;">
+                Đã tạo bảng DP (${m+1} x ${n+1}).<br>
+                Hàng 0 và Cột 0 được gán sẵn = 0.<br><br>
+                Sẵn sàng chạy!
             </div>
         </div>
+    </div>
     `;
 }
-
 // --- RUNNER LCS ---
 async function runLCS() {
-    if(typeof isRunning !== 'undefined' && isRunning) { shouldKill = true; isRunning = false; await sleep(100); }
+    if(typeof isRunning !== 'undefined' && isRunning) {
+        shouldKill = true;
+        isRunning = false;
+        await sleep(100);
+    }
     const btnRun = document.getElementById('btn-run');
     const btnPause = document.getElementById('btn-pause');
     const infoBox = document.getElementById('lcs-info');
-
-    isRunning = true; isPaused = false; shouldKill = false;
-    if(btnRun) btnRun.disabled = true; 
+    
+    isRunning = true;
+    isPaused = false;
+    shouldKill = false;
+    if(btnRun) btnRun.disabled = true;
     if(btnPause) { btnPause.disabled = false; btnPause.innerText = "Tạm dừng"; }
-
+    
     const m = lcsStr1.length;
     const n = lcsStr2.length;
-    lcsTable = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
-
-    // Reset UI
-    document.querySelectorAll('.dp-cell').forEach(el => {
-        el.className = 'dp-cell'; el.innerText = '0';
-    });
-
-    // --- DP LOOP ---
-    for (let i = 1; i <= m; i++) {
-        for (let j = 1; j <= n; j++) {
-            if(shouldKill) { isRunning=false; if(btnRun) btnRun.disabled=false; return; }
-            while(isPaused) { infoBox.innerHTML = "Đang tạm dừng..."; await sleep(100); }
-
-            let cell = document.getElementById(`lcs-cell-${i}-${j}`);
-            cell.classList.add("dp-active");
+    infoBox.innerHTML = `Bắt đầu điền bảng DP...<br><br>`;
+    
+    for(let i = 1; i <= m; i++) {
+        for(let j = 1; j <= n; j++) {
+            if(shouldKill) break;
+            while(isPaused) await sleep(100);
             
-            let char1 = lcsStr1[i-1];
-            let char2 = lcsStr2[j-1];
-
-            infoBox.innerHTML = `So sánh: '${char1}' vs '${char2}'`;
-            await sleep(500);
-
-            if (char1 === char2) {
-                // Trường hợp bằng nhau -> Lấy chéo + 1
+            let cell = document.getElementById(`lcs-cell-${i}-${j}`);
+            let rowHead = document.getElementById(`lcs-row-head-${i}`);
+            let colHead = document.getElementById(`lcs-col-head-${j}`);
+            
+            rowHead.style.background = "#d63031"; rowHead.style.color = "#fff";
+            colHead.style.background = "#0984e3"; colHead.style.color = "#fff";
+            cell.style.background = "rgba(253, 203, 110, 0.2)"; 
+            
+            let c1 = lcsStr1[i-1];
+            let c2 = lcsStr2[j-1];
+            
+            if (c1 === c2) {
+                infoBox.innerHTML += `<div>👉 <b style="color:#ff7675">${c1}</b> == <b style="color:#74b9ff">${c2}</b><br><span style="color:#00b894">DP[${i}][${j}] = ${lcsDP[i-1][j-1]} + 1 = ${lcsDP[i-1][j-1] + 1}</span></div>`;
+                lcsDP[i][j] = lcsDP[i-1][j-1] + 1;
+                
                 let diagCell = document.getElementById(`lcs-cell-${i-1}-${j-1}`);
-                if(diagCell) diagCell.classList.add("dp-match"); // Xanh lá
+                diagCell.style.background = "rgba(0, 184, 148, 0.6)"; 
+                await sleep(500);
                 
-                lcsTable[i][j] = lcsTable[i-1][j-1] + 1;
-                cell.innerText = lcsTable[i][j];
+                cell.innerHTML = lcsDP[i][j];
+                cell.style.color = "#00b894"; 
+                cell.style.fontSize = "18px"; // GIẢM FONT SIZE TỪ 22px XUỐNG 18px
+                diagCell.style.background = "transparent";
                 
-                infoBox.innerHTML += ` -> <b>Khớp!</b> = Chéo góc (${lcsTable[i-1][j-1]}) + 1`;
-                await sleep(800);
-                if(diagCell) diagCell.classList.remove("dp-match");
             } else {
-                // Trường hợp khác nhau -> Max(Trên, Trái)
+                let vTop = lcsDP[i-1][j];
+                let vLeft = lcsDP[i][j-1];
+                infoBox.innerHTML += `<div>👉 <b style="color:#ff7675">${c1}</b> ≠ <b style="color:#74b9ff">${c2}</b><br><span style="color:#fdcb6e">DP[${i}][${j}] = max(${vTop}, ${vLeft}) = ${Math.max(vTop, vLeft)}</span></div>`;
+                lcsDP[i][j] = Math.max(vTop, vLeft);
+                
                 let topCell = document.getElementById(`lcs-cell-${i-1}-${j}`);
                 let leftCell = document.getElementById(`lcs-cell-${i}-${j-1}`);
+                topCell.style.background = "rgba(225, 112, 85, 0.4)";  
+                leftCell.style.background = "rgba(225, 112, 85, 0.4)"; 
+                await sleep(500);
                 
-                if(topCell) topCell.classList.add("dp-compare"); // Cam
-                if(leftCell) leftCell.classList.add("dp-compare");
-
-                let valTop = lcsTable[i-1][j];
-                let valLeft = lcsTable[i][j-1];
-                lcsTable[i][j] = Math.max(valTop, valLeft);
-                cell.innerText = lcsTable[i][j];
-
-                infoBox.innerHTML += ` -> Khác nhau. Max(Trên=${valTop}, Trái=${valLeft})`;
-                await sleep(800);
-                
-                if(topCell) topCell.classList.remove("dp-compare");
-                if(leftCell) leftCell.classList.remove("dp-compare");
+                cell.innerHTML = lcsDP[i][j];
+                cell.style.color = "#fdcb6e"; 
+                cell.style.fontSize = "16px"; // GIẢM FONT SIZE TỪ 20px XUỐNG 16px
+                topCell.style.background = "transparent";
+                leftCell.style.background = "transparent";
             }
             
-            cell.classList.remove("dp-active");
+            infoBox.scrollTop = infoBox.scrollHeight;
+            await sleep(300);
+            
+            rowHead.style.background = "#353b48"; rowHead.style.color = "#ff7675";
+            colHead.style.background = "#353b48"; colHead.style.color = "#74b9ff";
+            cell.style.background = "transparent";
         }
     }
-
-    // --- TRUY VẾT ---
-    infoBox.innerHTML = "Hoàn tất bảng. Truy vết tìm chuỗi...";
-    let i = m, j = n;
-    let pathStr = "";
     
-    while (i > 0 && j > 0) {
-        if(shouldKill) break;
-        let cell = document.getElementById(`lcs-cell-${i}-${j}`);
-        cell.classList.add("dp-result"); // Màu vàng
-
-        if (lcsStr1[i-1] === lcsStr2[j-1]) {
-            pathStr = lcsStr1[i-1] + pathStr;
-            i--; j--;
-            infoBox.innerHTML = `Ký tự '${lcsStr1[i]}' khớp -> Thêm vào kết quả. Đi chéo về [${i},${j}]`;
-        } else if (lcsTable[i-1][j] > lcsTable[i][j-1]) {
-            i--;
-            infoBox.innerHTML = `Đi lên trên [${i},${j}] (Giá trị lớn hơn)`;
-        } else {
-            j--;
-            infoBox.innerHTML = `Đi sang trái [${i},${j}]`;
+    if(!shouldKill) {
+        infoBox.innerHTML += `<br><div style="color:#00b894; font-weight:bold; font-size:14px;">✅ Điền bảng xong!<br>Tiến hành Backtracking...</div>`;
+        infoBox.scrollTop = infoBox.scrollHeight;
+        await sleep(800);
+        
+        let i = m, j = n;
+        let lcsResult = "";
+        
+        while(i > 0 && j > 0) {
+            let cell = document.getElementById(`lcs-cell-${i}-${j}`);
+            
+            if (lcsStr1[i-1] === lcsStr2[j-1]) {
+                lcsResult = lcsStr1[i-1] + lcsResult;
+                cell.style.background = "#00b894"; 
+                cell.style.color = "white";
+                cell.style.boxShadow = "0 0 8px #00b894";
+                i--; j--;
+            } else if (lcsDP[i-1][j] >= lcsDP[i][j-1]) {
+                cell.style.background = "rgba(255, 255, 255, 0.1)"; 
+                i--;
+            } else {
+                cell.style.background = "rgba(255, 255, 255, 0.1)"; 
+                j--;
+            }
+            await sleep(300);
         }
-        await sleep(500);
+        
+        infoBox.innerHTML += `<br><div style="color:#55efc4; font-weight:bold; font-size: 15px; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 6px; text-align:center;">🎉 LCS: "${lcsResult}"<br>Độ dài: ${lcsDP[m][n]}</div>`;
+        infoBox.scrollTop = infoBox.scrollHeight;
     }
-
-    infoBox.innerHTML = `<b>Kết quả LCS: "${pathStr}" (Độ dài: ${pathStr.length})</b>`;
+    
     isRunning = false;
     if(btnRun) btnRun.disabled = false;
     if(btnPause) btnPause.disabled = true;
@@ -2982,133 +3234,148 @@ const nodePositions = [
 function generateTarjanUI() {
     const container = document.getElementById('visualizer-container');
     container.innerHTML = '';
-    const n = 7;
-    tarjanAdj = [
-        [1],     
-        [2],      
-        [0],    
-        [4, 2],   
-        [5],     
-        [4, 6],    
-        [0]       
-    ];
-    const customStyle = `
-        <style>
-            .tarjan-layout {
-                display: flex;
-                width: 100%;
-                gap: 10px; /* Khoảng cách giữa Graph và Stack nhỏ lại */
-                justify-content: center;
-                align-items: flex-start;
-            }
-            .graph-area {
-                position: relative;
-                width: 70%;       /* Tăng độ rộng phần Graph */
-                height: 500px;    /* Tăng chiều cao bảng */
-                background: #2d3436;
-                border: 1px solid #444;
-                border-radius: 8px;
-                overflow: hidden;
-            }
-            .graph-node {
-                position: absolute;
-                width: 30px;        /* Node nhỏ hơn (Cũ: 36px) */
-                height: 30px;
-                line-height: 26px;  /* Căn giữa chữ dọc */
-                border-radius: 50%;
-                background-color: #636e72;
-                color: white;
-                text-align: center;
-                font-weight: bold;
-                font-size: 11px;    /* Chữ trong node nhỏ lại */
-                border: 2px solid #b2bec3;
-                z-index: 10;
-                transition: background-color 0.3s, border-color 0.3s;
-            }
-            .node-label {
-                position: absolute;
-                top: 34px;          /* Vị trí sát node hơn */
-                left: 50%;
-                transform: translateX(-50%);
-                width: 70px;
-                font-size: 9px;     /* Chữ thông số cực nhỏ */
-                color: #dfe6e9;
-                text-align: center;
-                line-height: 1.1;
-                background: rgba(0,0,0,0.4);
-                padding: 1px;
-                border-radius: 3px;
-                pointer-events: none;
-            }
-            .stack-viz {
-                display: flex;
-                flex-direction: column-reverse;
-                height: 350px;      /* Stack dài ra */
-                overflow-y: auto;
-                background: #2d3436;
-                border: 1px solid #636e72;
-                padding: 4px;
-                border-radius: 5px;
-            }
-            .stack-item {
-                background: #fdcb6e;
-                color: #2d3436;
-                padding: 2px 5px;   /* Padding mỏng lại */
-                margin-top: 2px;
-                border-radius: 2px;
-                text-align: center;
-                font-weight: bold;
-                font-size: 10px;    /* Chữ trong Stack nhỏ lại */
-                border: 1px solid #e17055;
-            }
-            .graph-svg {
-                width: 100%;
-                height: 100%;
-                position: absolute;
-                top: 0;
-                left: 0;
-                z-index: 1;
-            }
-        </style>
-    `;
+    
+    // 1. SINH SỐ LƯỢNG NODE
+    const n = Math.floor(Math.random() * 3) + 6; // 6 đến 8 nodes
+    tarjanAdj = Array.from({ length: n }, () => []);
 
-    let html = customStyle + `
-        <div class="tarjan-layout">
-            <div class="graph-area" id="graph-area">
-                <svg class="graph-svg" id="graph-svg">
-                    <defs>
-                        <marker id="arrowhead" markerWidth="8" markerHeight="6" 
-                        refX="18" refY="3" orient="auto">
-                            <polygon points="0 0, 8 3, 0 6" fill="#b2bec3" />
-                        </marker>
-                    </defs>
-                </svg>
-                
-                ${nodePositions.map((pos, i) => `
-                    <div id="tj-node-${i}" class="graph-node" style="left:${pos.x - 15}px; top:${pos.y - 15}px;">
-                        ${i}
-                        <div id="tj-lbl-${i}" class="node-label">id: -<br>low: -</div>
-                    </div>
-                `).join('')}
-            </div>
+    // 2. CHIA CỤM (Tạo SCCs)
+    let sccSizes = [];
+    let rem = n;
+    while(rem > 0) {
+        let s = Math.floor(Math.random() * 2) + 2;
+        if (rem - s === 1) s++; 
+        if (s > rem) s = rem;
+        sccSizes.push(s);
+        rem -= s;
+    }
+    
+    let cur = 0;
+    let sccs = [];
+    for(let s of sccSizes) {
+        let comp = [];
+        for(let i=0; i<s; i++) comp.push(cur++);
+        sccs.push(comp);
+        for(let i=0; i<s; i++) tarjanAdj[comp[i]].push(comp[(i+1)%s]);
+        if(s > 2) tarjanAdj[comp[0]].push(comp[2]);
+    }
+    for(let i=0; i<sccs.length - 1; i++) {
+        let u = sccs[i][Math.floor(Math.random() * sccs[i].length)];
+        let v = sccs[i+1][Math.floor(Math.random() * sccs[i+1].length)];
+        tarjanAdj[u].push(v);
+    }
 
-            <div style="width: 25%; display:flex; flex-direction:column; gap:5px;">
-                <h4 style="color:white; text-align:center; margin: 0; font-size: 12px;">Stack</h4>
-                <div id="tarjan-stack-viz" class="stack-viz"></div>
-                <div id="tj-info" style="color: #fdcb6e; font-size:11px; background: #2d3436; padding:5px; border-radius:5px; min-height: 50px;">
-                    Sẵn sàng...
-                </div>
-            </div>
-        </div>
-    `;
-    container.innerHTML = html;
+    // 3. TÍNH TỌA ĐỘ THEO ĐƯỜNG TRÒN
+    let positions = [];
+    // Dịch tâm ra giữa viewBox mới
+    const cx = 350; 
+    const cy = 350; 
+    const R = 220;  // TĂNG MẠNH BÁN KÍNH LÊN 220 (Cũ: 170) để bớt rối
 
-    const svg = document.getElementById('graph-svg');
+    for (let i = 0; i < n; i++) {
+        let angle = (Math.PI * 2 * i) / n;
+        positions.push({
+            id: i,
+            x: cx + R * Math.cos(angle),
+            y: cy + R * Math.sin(angle),
+            angle: angle 
+        });
+    }
+
+    // 4. TOÁN HỌC VẼ DÂY VÀ MŨI TÊN 
+    let edgesHTML = "";
+    const NODE_RADIUS = 32; // TĂNG BÁN KÍNH NODE LÊN 32 (Cũ: 26) để dây không đâm vào chữ
+    const OFFSET = 4; 
+
     for (let u = 0; u < n; u++) {
         for (let v of tarjanAdj[u]) {
-            drawLine(u, v, svg);
+            let p1 = positions[u];
+            let p2 = positions[v];
+            
+            let dx = p2.x - p1.x;
+            let dy = p2.y - p1.y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist > 0) {
+                let r = NODE_RADIUS + OFFSET;
+                let startX = p1.x + (dx / dist) * r;
+                let startY = p1.y + (dy / dist) * r;
+                let endX = p2.x - (dx / dist) * r;
+                let endY = p2.y - (dy / dist) * r;
+
+                let nx = -dy / dist;
+                let ny = dx / dist;
+                let curveOffset = 25; 
+                let cx_curve = (startX + endX) / 2 + nx * curveOffset;
+                let cy_curve = (startY + endY) / 2 + ny * curveOffset;
+
+                edgesHTML += `<path id="tj-edge-${u}-${v}" d="M ${startX} ${startY} Q ${cx_curve} ${cy_curve} ${endX} ${endY}" fill="none" stroke="#b2bec3" stroke-width="2.5" marker-end="url(#arrowhead-tj)" transition="all 0.3s" />`;
+            }
         }
     }
+
+    // 5. VẼ CÁC NODE VÀ ĐẨY BẢNG ID/LOW RA NGOÀI TÂM
+    let nodesHTML = "";
+    for(let i = 0; i < n; i++) {
+        let pos = positions[i];
+        
+        // TĂNG KHOẢNG CÁCH ĐẨY BẢNG RA XA (Do Node đã to ra)
+        let labelDist = 130; // Cũ: 80
+        
+        // Cập nhật lại phép trừ một nửa kích thước bảng mới (rộng 110, cao 54)
+        let fx = Math.cos(pos.angle) * labelDist - 55; 
+        let fy = Math.sin(pos.angle) * labelDist - 27; 
+
+        nodesHTML += `
+            <g transform="translate(${pos.x}, ${pos.y})">
+                <circle id="tj-node-circle-${i}" r="40" fill="#636e72" stroke="#b2bec3" stroke-width="2.5" style="transition: all 0.3s;" />
+                <text x="0" y="7" text-anchor="middle" fill="white" font-weight="bold" font-size="22" style="pointer-events: none;">${i}</text>
+                
+                <foreignObject x="${fx}" y="${fy}" width="110" height="54" style="overflow: visible;">
+                    <div id="tj-lbl-${i}" style="background: rgba(0,0,0,0.8); color: #dfe6e9; font-size: 20px; text-align: center; line-height: 1.4; font-family: monospace; border-radius: 6px; padding: 6px; border: 1px solid #777; box-shadow: 0 3px 6px rgba(0,0,0,0.5);">
+                        id: -<br>low: -
+                    </div>
+                </foreignObject>
+            </g>
+        `;
+    }
+
+    // 6. RENDER LAYOUT
+    container.innerHTML = `
+    <style>
+        .stack-item {
+            background: #fdcb6e; color: #2d3436; padding: 4px 6px; 
+            margin-top: 3px; border-radius: 3px; text-align: center; 
+            font-weight: bold; font-size: 12px; border: 1px solid #e17055;
+            transition: all 0.2s;
+        }
+    </style>
+    <div class="tarjan-layout" style="display: flex; gap: 8px; height: 400px; width: 100%; align-items: stretch; padding: 2px;"> 
+        
+        <div class="graph-area" style="flex: 1; background: #2d3436; border-radius: 8px; border: 1px solid #636e72; position: relative; display: flex; align-items: center; justify-content: center;">
+            <svg width="100%" height="100%" viewBox="-50 -50 800 800" preserveAspectRatio="xMidYMid meet" style="overflow: visible;">
+                <defs>
+                    <marker id="arrowhead-tj" markerWidth="9" markerHeight="6" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 9 3, 0 6" fill="#b2bec3" id="tj-arrow-poly" />
+                    </marker>
+                </defs>
+                ${edgesHTML}
+                ${nodesHTML}
+            </svg>
+        </div>
+
+        <div class="tarjan-sidebar" style="width: 190px; display: flex; flex-direction: column; gap: 4px; padding: 6px; background: #2d3436; border: 1px solid #636e72; border-radius: 8px; box-sizing: border-box; height: 100%;">
+            <h4 style="color:#74b9ff; text-align:center; margin: 0 0 4px 0; border-bottom:1px solid #555; padding-bottom:4px; font-size: 15px;">Tarjan Control</h4>
+            <div style="color:#dfe6e9; font-size:13px; font-weight:bold;">Stack hiện tại:</div>
+            
+            <div id="tarjan-stack-viz" style="height: 100px; overflow-y: auto; background: #1e272e; border: 1px solid #555; border-radius: 5px; padding: 4px; display: flex; flex-direction: column-reverse; gap: 2px; scrollbar-width: thin;"></div>
+            
+            <div id="tj-info" style="flex: 1; background:rgba(0,0,0,0.3); color:#fdcb6e; padding:8px; border-radius:5px; font-size:13px; overflow-y: auto; line-height: 1.4; border: 1px solid #444; margin-top: 2px; scrollbar-width: thin;">
+                Sẵn sàng chạy...
+            </div>
+        </div>
+    </div>
+    `;
 }
 function drawLine(u, v, svg) {
     const p1 = nodePositions[u];
@@ -3126,78 +3393,128 @@ function drawLine(u, v, svg) {
 }
 async function dfsTarjan(at, info) {
     if(typeof shouldKill !== 'undefined' && shouldKill) return;
+    
     tarjanStack.push(at);
     tarjanOnStack[at] = true;
     tarjanIds[at] = tarjanLow[at] = tarjanIdCounter++;
-    const nodeUI = document.getElementById(`tj-node-${at}`);
+    
+    // SỬA LỖI 1: Lấy đúng ID của vòng tròn SVG (tj-node-circle-...)
+    const circleUI = document.getElementById(`tj-node-circle-${at}`);
     const lblUI = document.getElementById(`tj-lbl-${at}`);
-    if(nodeUI) {
-        nodeUI.style.backgroundColor = "#3b82f6"; 
-        nodeUI.style.color = "white";
+    
+    if(circleUI) {
+        // 🔵 1. MÀU XANH DƯƠNG KHI NODE ĐANG TRONG STACK
+        circleUI.setAttribute('fill', '#0984e3'); 
+        circleUI.setAttribute('stroke', '#74b9ff');
     }
-    if(lblUI) lblUI.innerText = `id: ${tarjanIds[at]} | low: ${tarjanLow[at]}`;
+    
+    if(lblUI) {
+        lblUI.innerHTML = `id: ${tarjanIds[at]}<br>low: ${tarjanLow[at]}`;
+        lblUI.style.color = "#74b9ff"; 
+    }
+
     const stackContainer = document.getElementById('tarjan-stack-viz');
     const stackItem = document.createElement('div');
     stackItem.className = 'stack-item';
     stackItem.id = `st-item-${at}`;
     stackItem.innerText = `Node ${at}`;
     stackContainer.appendChild(stackItem);
-    info.innerText = `Thăm ${at}. id=${tarjanIds[at]}. Push Stack.`;
-    if(typeof sleep === 'function') await sleep();
+    
+    // Ghi log ra màn hình bằng innerHTML để giữ lại lịch sử
+    info.innerHTML += `<div>👉 Thăm <b>${at}</b>. Push Stack.</div>`;
+    info.scrollTop = info.scrollHeight; // Tự cuộn xuống dòng cuối
+    
+    if(typeof sleep === 'function') await sleep(600);
+    
     for (let to of tarjanAdj[at]) {
         if(typeof shouldKill !== 'undefined' && shouldKill) return;
-        const line = document.getElementById(`line-${at}-${to}`);
-        if(line) {
-            line.setAttribute('stroke', '#fdcb6e'); 
-            line.setAttribute('stroke-width', '3');
+        
+        // SỬA LỖI 2: Đồ thị mới dùng <path> thay vì <line>
+        const edge = document.getElementById(`tj-edge-${at}-${to}`);
+        if(edge) {
+            edge.setAttribute('stroke', '#fdcb6e'); // Highlight cạnh đang đi
+            edge.setAttribute('stroke-width', '4');
         }
+        
         if (tarjanIds[to] === -1) {
-            info.innerText = `${to} chưa thăm. DFS(${to})...`;
-            if(typeof sleep === 'function') await sleep();
-            if(line) { line.setAttribute('stroke', '#b2bec3'); line.setAttribute('stroke-width', '1.5'); }
+            info.innerHTML += `<div>- ${to} chưa thăm. DFS(${to})...</div>`;
+            info.scrollTop = info.scrollHeight;
+            if(typeof sleep === 'function') await sleep(600);
+            
+            // Trả cạnh về màu xám sau khi đi qua
+            if(edge) { edge.setAttribute('stroke', '#b2bec3'); edge.setAttribute('stroke-width', '2.5'); }
+            
             await dfsTarjan(to, info);            
-            info.innerText = `Về ${at}. low[${at}]=min(${tarjanLow[at]}, low[${to}]->${tarjanLow[to]})`;
+            
             tarjanLow[at] = Math.min(tarjanLow[at], tarjanLow[to]);
+            info.innerHTML += `<div>🔙 Về <b>${at}</b>. low[${at}]=min(low, low[${to}]->${tarjanLow[to]})</div>`;
+            info.scrollTop = info.scrollHeight;
+            
             if(lblUI) {
-                lblUI.innerText = `id: ${tarjanIds[at]} | low: ${tarjanLow[at]}`;
+                lblUI.innerHTML = `id: ${tarjanIds[at]}<br>low: ${tarjanLow[at]}`;
                 lblUI.style.color = "#ffeaa7";
             }
-            if(typeof sleep === 'function') await sleep();
+            // Sáng lại màu xanh dương khi đệ quy lùi về đỉnh này
+            if(circleUI) circleUI.setAttribute('fill', '#0984e3');
+            if(typeof sleep === 'function') await sleep(600);
+            
         } else if (tarjanOnStack[to]) {
-            info.innerText = `${to} trong Stack. low[${at}]=min(low, id[${to}])`;
-            if(typeof sleep === 'function') await sleep();
-            if(line) { line.setAttribute('stroke', '#b2bec3'); line.setAttribute('stroke-width', '1.5'); }
+            info.innerHTML += `<div>🔄 Cạnh ngược tới <b>${to}</b> (trong Stack). Cập nhật low[${at}]</div>`;
+            info.scrollTop = info.scrollHeight;
+            if(typeof sleep === 'function') await sleep(600);
+            
+            if(edge) { edge.setAttribute('stroke', '#b2bec3'); edge.setAttribute('stroke-width', '2.5'); }
+            
             tarjanLow[at] = Math.min(tarjanLow[at], tarjanIds[to]);
-            if(lblUI) lblUI.innerText = `id: ${tarjanIds[at]} | low: ${tarjanLow[at]}`;
-            if(typeof sleep === 'function') await sleep();
+            if(lblUI) lblUI.innerHTML = `id: ${tarjanIds[at]}<br>low: ${tarjanLow[at]}`;
+            
+            if(typeof sleep === 'function') await sleep(600);
         } else {
-             if(line) { line.setAttribute('stroke', '#b2bec3'); line.setAttribute('stroke-width', '1.5'); }
+             if(edge) { edge.setAttribute('stroke', '#b2bec3'); edge.setAttribute('stroke-width', '2.5'); }
         }
     }
+    
+    // TÌM THẤY SCC
     if (tarjanIds[at] === tarjanLow[at]) {
-        info.innerText = `SCC Root ${at}! Pop Stack...`;
-        info.style.color = "#55efc4";
-        await sleep(1000);
-        const sccColor = `hsl(${Math.random() * 360}, 70%, 60%)`;
-        tarjanSCCCount++;
-        while (tarjanStack.length > 0) {
-            let node = tarjanStack.pop();
-            tarjanOnStack[node] = false;
-            let sItem = document.getElementById(`st-item-${node}`);
-            if(sItem) sItem.remove();
-            let nDiv = document.getElementById(`tj-node-${node}`);
-            if(nDiv) {
-                nDiv.style.backgroundColor = sccColor;
-                nDiv.style.borderColor = "white";
-                nDiv.style.fontSize = "9px";
-                nDiv.innerHTML = `${node}<br>SCC${tarjanSCCCount}`;
-                nDiv.style.lineHeight = "12px"; 
-            }
-            if (node === at) break;
+        info.innerHTML += `<div>⭐ <b>SCC Root tại ${at}!</b> Pop Stack...</div>`;
+        info.scrollTop = info.scrollHeight;
+        
+        // 🟠 2. MÀU CAM KHI TÌM THẤY SCC ROOT
+        if(circleUI) {
+            circleUI.setAttribute('fill', '#e17055');
+            circleUI.setAttribute('stroke', '#ffeaa7');
         }
-        info.innerText = `Xong SCC ${tarjanSCCCount}`;
-        info.style.color = "#fdcb6e";
         await sleep(1000);
+        
+        tarjanSCCCount++;
+        let w;
+        do {
+            w = tarjanStack.pop();
+            tarjanOnStack[w] = false;
+            
+            let sItem = document.getElementById(`st-item-${w}`);
+            if(sItem) sItem.remove();
+            
+            let wCircle = document.getElementById(`tj-node-circle-${w}`);
+            let wLbl = document.getElementById(`tj-lbl-${w}`);
+            
+            if(wCircle) {
+                // 🟢 3. MÀU XANH LÁ KHI ĐÃ RÚT KHỎI STACK & XỬ LÝ XONG
+                wCircle.setAttribute('fill', '#00b894');
+                wCircle.setAttribute('stroke', '#55efc4');
+            }
+            if(wLbl) {
+                // Gắn thêm chữ SCCx vào cái bảng đen đen để đánh dấu
+                wLbl.innerHTML += `<br><span style="color:#55efc4; font-weight:bold;">(SCC ${tarjanSCCCount})</span>`;
+            }
+            
+            await sleep(500); // Dừng nửa giây để ngắm từng Node rơi khỏi Stack
+            
+        } while (w !== at);
+        
+        info.innerHTML += `<div>✅ Xong SCC ${tarjanSCCCount}</div>`;
+        info.scrollTop = info.scrollHeight;
+        await sleep(800);
     }
 }
 async function runTarjan() {
@@ -3238,79 +3555,168 @@ let kruDSU = [];
 function generateKruskalUI() {
     const container = document.getElementById('visualizer-container');
     container.innerHTML = '';
-    const n = 6; 
-    kruNodes = [];
+    
+    // 1. TỌA ĐỘ TÍNH THEO % ĐỂ LUÔN Ở GIỮA (Center-based coordinates)
+    // Mình thu nhỏ khoảng cách giữa các node lại để "cục" node trông gọn hơn
     const positions = [
-        {x: 100, y: 100}, {x: 300, y: 50}, {x: 500, y: 100},
-        {x: 100, y: 350}, {x: 300, y: 400}, {x: 500, y: 350}
+       {x: 25, y: 30}, {x: 50, y: 20}, {x: 75, y: 30}, // Hàng trên thoáng hơn
+    {x: 25, y: 70}, {x: 50, y: 80}, {x: 75, y: 70} // Hàng dưới (quy về %)
     ];
-    kruNodes = positions; 
-    kruEdges = [];
-    const possibleEdges = [
-        [0,1], [1,2], [0,3], [3,4], [4,5], [2,5], [1,4], [1,3], [2,4]
-    ];    
-    possibleEdges.forEach((e, i) => {
-        kruEdges.push({
-            u: e[0], 
-            v: e[1], 
-            w: Math.floor(Math.random() * 20) + 1,
-            id: i
-        });
-    });
-    let html = `
-        <div class="kruskal-layout">
-            <div class="kruskal-graph" id="kruskal-graph">
-                <svg class="graph-svg" id="kru-svg">
-                    </svg>
+    
+    kruNodes = positions;
+    const possibleEdges = [[0,1], [1,2], [0,3], [3,4], [4,5], [2,5], [1,4], [1,3], [2,4]];
+    kruEdges = possibleEdges.map((e, i) => ({
+        u: e[0], v: e[1], 
+        w: Math.floor(Math.random() * 20) + 1,
+        id: i
+    }));
+
+let html = `
+        <div class="kruskal-layout" style="display: flex; gap: 10px; height: 400px; width: 100%; padding: 5px; box-sizing: border-box;">
+            
+            <div class="kruskal-graph" id="kruskal-graph" style="flex: 2.5; position: relative; background: #1e272e; border-radius: 10px; border: 1px solid #3d3d3d; overflow: hidden;">
+                <svg id="kru-svg" style="width: 100%; height: 100%; position: absolute; top: 0; left: 0;"></svg>
+                
                 ${kruNodes.map((pos, i) => `
                     <div id="kru-node-${i}" class="graph-node" 
-                         style="left:${pos.x-15}px; top:${pos.y-15}px; width:30px; height:30px; line-height:26px; font-size:12px; background:#636e72;">
+                         style="position: absolute; left: ${pos.x}%; top: ${pos.y}%; transform: translate(-50%, -50%); width: 28px; height: 28px; line-height: 24px; font-size: 12px; background: #2d3436; border: 2px solid #74b9ff; border-radius: 50%; color: white; text-align: center; z-index: 5; font-weight: bold; box-shadow: 0 0 10px rgba(0,0,0,0.5);">
                         ${i}
                     </div>
                 `).join('')}
+
+                <div style="position: absolute; bottom: 30px; right: 30px; background: rgba(16, 185, 129, 0.9); color: white; padding: 3px 30px; border-radius: 30px; font-size: 11px; font-weight: bold; z-index: 10; border: 1px solid #059669;">
+                    MST: <span id="kru-total">0</span>
+                </div>
             </div>
 
-            <div class="kruskal-sidebar">
-                <div style="color:white; font-weight:bold; text-align:center;">
-                    Danh sách cạnh (Sorted)
-                </div>
-                <div class="edge-list" id="kru-edge-list">
-                    </div>
-                <div id="kru-info" style="background:#2d3436; color:#fdcb6e; padding:10px; border-radius:5px; font-size:13px; min-height:80px;">
-                    Sẵn sàng... Bấm chạy để sắp xếp và duyệt.
-                </div>
-                <div style="background:#2d3436; color:#10b981; padding:10px; border-radius:5px; text-align:center; font-weight:bold;">
-                    MST Cost: <span id="kru-total">0</span>
-                </div>
+<div class="kruskal-sidebar" style="
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: flex-end; /* Đẩy toàn bộ xuống đáy */
+    gap: 10px; 
+    max-width: 190px; 
+    height: 100%; 
+    box-sizing: border-box;
+    padding-bottom: 5px;
+">
+    
+    <div style="
+        height: 260px; /* Giảm nhẹ chiều cao ô này để nhường chỗ cho ô Log */
+        background: #2d3436; 
+        border: 1px solid #636e72; 
+        border-radius: 8px; 
+        display: flex; 
+        flex-direction: column; 
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    ">
+        <div style="color:#74b9ff; font-weight:bold; text-align:center; padding: 6px; background: rgba(0,0,0,0.3); font-size: 11px; border-bottom: 1px solid #444; letter-spacing: 0.5px;">
+            DANH SÁCH CẠNH
+        </div>
+        <div id="kru-edge-list" style="flex: 1; overflow-y: auto; padding: 5px; scrollbar-width: thin;">
             </div>
+    </div>
+
+    <div style="
+        height: 110px; /* Tăng từ 70px lên 110px để đọc sướng hơn */
+        background: #1e272e; 
+        border: 1px solid #74b9ff; 
+        border-radius: 8px; 
+        display: flex; 
+        flex-direction: column; 
+        overflow: hidden;
+        flex-shrink: 0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    ">
+        <div style="color:#fdcb6e; font-weight:bold; padding: 5px 10px; font-size: 10px; border-bottom: 1px solid #444; background: rgba(0,0,0,0.4); text-transform: uppercase;">
+            Tiến trình chạy
+        </div>
+        <div id="kru-info" style="
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 8px 12px; 
+            color:#fdcb6e; 
+            font-size: 12px; /* Tăng nhẹ cỡ chữ Log */
+            line-height: 1.5; 
+            scrollbar-width: thin;
+        ">
+            Sẵn sàng...
+        </div>
+    </div>
+</div>
         </div>
     `;
-    container.innerHTML = html;
+        container.innerHTML = html;
+    
+    // Vẽ lại các đường nối sau khi đã render DOM
     const svg = document.getElementById('kru-svg');
-    kruEdges.forEach(edge => {
-        drawLineKruskal(edge, svg);
-    });  
-    renderEdgeList(kruEdges, false);
+    setTimeout(() => { // Dùng timeout nhỏ để đảm bảo trình duyệt đã tính toán xong kích thước %
+        kruEdges.forEach(edge => {
+            // Lưu ý: Bạn cần cập nhật hàm drawLineKruskal để nó lấy tọa độ từ 
+            // document.getElementById('kru-node-X').getBoundingClientRect() 
+            // thay vì dùng tọa độ cứng trong mảng.
+            drawLineKruskal(edge, svg);
+        });  
+        renderEdgeList(kruEdges, false);
+    }, 50);
 }
 function drawLineKruskal(edge, svg) {
-    const p1 = kruNodes[edge.u];
-    const p2 = kruNodes[edge.v];
+    const node1 = document.getElementById(`kru-node-${edge.u}`);
+    const node2 = document.getElementById(`kru-node-${edge.v}`);
+    const graphArea = document.getElementById('kruskal-graph');
+
+    if (!node1 || !node2 || !graphArea) return;
+
+    // Lấy khung của ô đen để làm mốc tọa độ (0,0)
+    const containerRect = graphArea.getBoundingClientRect();
+    const r1 = node1.getBoundingClientRect();
+    const r2 = node2.getBoundingClientRect();
+
+    // Tính tâm Node 1 và Node 2 chính xác đến từng pixel
+    const x1 = r1.left - containerRect.left + r1.width / 2;
+    const y1 = r1.top - containerRect.top + r1.height / 2;
+    const x2 = r2.left - containerRect.left + r2.width / 2;
+    const y2 = r2.top - containerRect.top + r2.height / 2;
+
+    // Vẽ đường thẳng nối 2 tâm
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('x1', p1.x); line.setAttribute('y1', p1.y);
-    line.setAttribute('x2', p2.x); line.setAttribute('y2', p2.y);
+    line.setAttribute('x1', x1);
+    line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2);
+    line.setAttribute('y2', y2);
     line.setAttribute('stroke', '#b2bec3');
     line.setAttribute('stroke-width', '2');
     line.id = `kru-line-${edge.id}`;
     svg.appendChild(line);
-    const midX = (p1.x + p2.x) / 2;
-    const midY = (p1.y + p2.y) / 2;
+
+    // Vẽ nhãn trọng số (Weight label)
+    const midX = (x1 + x2) / 2;
+    const midY = (y1 + y2) / 2;
+    
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    
+    // Hình nền nhỏ cho con số để không bị đè lên dây
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', midX - 12);
+    rect.setAttribute('y', midY - 12);
+    rect.setAttribute('width', '24');
+    rect.setAttribute('height', '20');
+    rect.setAttribute('fill', '#1e272e'); // Màu nền ô đen
+    rect.setAttribute('rx', '4');
+    
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     text.setAttribute('x', midX);
-    text.setAttribute('y', midY);
+    text.setAttribute('y', midY + 5);
     text.setAttribute('text-anchor', 'middle');
-    text.setAttribute('class', 'weight-label');
+    text.setAttribute('fill', '#fdcb6e');
+    text.setAttribute('font-size', '13px');
+    text.setAttribute('font-weight', 'bold');
     text.textContent = edge.w;
-    svg.appendChild(text);
+
+    g.appendChild(rect);
+    g.appendChild(text);
+    svg.appendChild(g);
 }
 function renderEdgeList(edges, isSorted) {
     const listDiv = document.getElementById('kru-edge-list');
@@ -3469,9 +3875,9 @@ function generateDijkstraUI() {
         </g>
     `).join('');
 
-    container.innerHTML = `
-        <div class="dijkstra-layout" style="display: flex; gap: 10px; height: 520px; width: 100%;"> 
-            <div class="graph-area" style="flex: 2; height: 100%; background: #2d3436; border-radius: 8px; border: 1px solid #636e72; position: relative;">
+container.innerHTML = `
+        <div class="dijkstra-layout" style="display: flex; gap: 10px; height: 400px; width: 100%;"> 
+            <div class="graph-area" style="flex: 2; height: 100%; background: #2d3436; border-radius: 8px; border: 1px solid #636e72; position: relative; overflow: hidden;">
                 <svg width="100%" height="100%" viewBox="0 0 600 520" preserveAspectRatio="xMidYMid meet">
                     <defs>
                         <marker id="arrowhead-dj" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -3482,37 +3888,33 @@ function generateDijkstraUI() {
                     ${nodesHTML}
                 </svg>
             </div>
-            <div class="dijkstra-sidebar" style="flex: 1.1; display: flex; flex-direction: column; gap: 8px;">
-                <div style="flex: 1.5; background: #2d3436; border: 1px solid #636e72; border-radius: 5px; overflow: hidden; display:flex; flex-direction:column;">
-                    <h4 style="color:white; text-align:center; margin: 0; background:#0984e3; padding:8px; font-size:14px;">Data Table</h4>
-                    <div style="overflow-y:auto; flex:1;">
-                        <table style="width:100%; border-collapse:collapse; color:#dfe6e9; font-size:13px; text-align:center;">
-                            <thead style="position: sticky; top: 0; background: #2d3436; border-bottom:1px solid #636e72;">
-                                <tr><th>Node</th><th>Dist</th><th>Parent</th></tr>
-                            </thead>
-                            <tbody>
-                                ${djNodes.map((_, i) => `
-                                    <tr id="dj-row-${i}" style="border-bottom: 1px solid #444;">
-                                        <td style="padding:6px; font-weight:bold;">${nodeNames[i]}</td>
-                                        <td id="dj-cell-d-${i}" style="padding:6px;">∞</td>
-                                        <td id="dj-cell-p-${i}" style="padding:6px;">-</td>
-                                    </tr>`).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div style="flex: 1; display:flex; gap:8px;">
-                    <div style="flex:1; background: #2d3436; border: 1px solid #636e72; border-radius: 5px; padding:5px; display:flex; flex-direction:column;">
-                        <div style="color:#fdcb6e; font-weight:bold; font-size:12px; text-align:center; border-bottom:1px solid #555;">OPEN</div>
-                        <div id="dj-open-set" style="color:#dfe6e9; font-size:12px; padding:5px; overflow-y:auto;"></div>
-                    </div>
-                    <div style="flex:1; background: #2d3436; border: 1px solid #636e72; border-radius: 5px; padding:5px; display:flex; flex-direction:column;">
-                        <div style="color:#ff7675; font-weight:bold; font-size:12px; text-align:center; border-bottom:1px solid #555;">CLOSED</div>
-                        <div id="dj-closed-set" style="color:#dfe6e9; font-size:12px; padding:5px; overflow-y:auto;"></div>
-                    </div>
-                </div>
-                <div id="dj-info" style="height: 50px; background:#2d3436; color:#fdcb6e; padding:5px; border-radius:5px; font-size:11px; overflow-y: auto; border: 1px solid #636e72;">
-                    Layout Hexagon đã chuẩn. Sẵn sàng.
+
+            <div class="dijkstra-sidebar" style="flex: 1.1; display: flex; flex-direction: column; gap: 10px; height: 100%;">
+<div style="flex: 1; background: #2d3436; border: 1px solid #636e72; border-radius: 8px; overflow: hidden; display:flex; flex-direction:column;">
+    <h4 style="color:white; text-align:center; margin: 0; background:#0984e3; padding:10px; font-size:14px;">DATA TABLE</h4>
+    
+    <div style="background: #34495e; display: flex; text-align: center; font-weight: bold; color: #74b9ff; font-size: 12px; border-bottom: 2px solid #636e72;">
+        <div style="flex:1; padding:10px;">Node</div>
+        <div style="flex:1; padding:10px;">Dist</div>
+        <div style="flex:1; padding:10px;">Parent</div>
+    </div>
+
+    <div style="overflow-y:auto; flex:1;">
+        <table style="width:100%; border-collapse:collapse; color:#dfe6e9; font-size:13px; text-align:center; table-layout: fixed;">
+            <tbody>
+                ${djNodes.map((_, i) => `
+                    <tr id="dj-row-${i}" style="border-bottom: 1px solid #444;">
+                        <td style="padding:12px; font-weight:bold;">${nodeNames[i]}</td>
+                        <td id="dj-cell-d-${i}" style="padding:12px;">∞</td>
+                        <td id="dj-cell-p-${i}" style="padding:12px;">-</td>
+                    </tr>`).join('')}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+                <div id="dj-info" style="height: 120px; background:#1e272e; color:#fdcb6e; padding:12px; border-radius:8px; font-size:12px; overflow-y: auto; border: 1px solid #636e72; line-height: 1.5;">
+                    <b style="color: #55efc4;">Trạng thái:</b> Layout đã sẵn sàng.<br>Bấm "Chạy" để bắt đầu tìm đường ngắn nhất.
                 </div>
             </div>
         </div>
@@ -3696,130 +4098,143 @@ async function runDijkstra() {
     if(btnPause) btnPause.disabled = true;
 }
 // --- LCA ---
-let lcaAdj = [];      
-let lcaNodes = [];    
-let lcaParent = [];    
-let lcaDepth = [];     
 function generateLCAUI() {
     const container = document.getElementById('visualizer-container');
     container.innerHTML = '';
-    const positions = [
-        {x: 300, y: 50},  
-        {x: 180, y: 180}, 
-        {x: 420, y: 180}, 
-        {x: 100, y: 320},
-        {x: 260, y: 320}, 
-        {x: 360, y: 320}, 
-        {x: 500, y: 320}, 
-        {x: 60,  y: 450}  
-    ];
-    let nodeIDs = [0, 1, 2, 3, 4, 5, 6, 7];
-    nodeIDs.sort(() => Math.random() - 0.5); 
-    let activeMap = {}; 
-    activeMap[0] = nodeIDs[0]; 
-    activeMap[1] = nodeIDs[1]; 
-    activeMap[2] = nodeIDs[2]; 
-    for(let i=3; i<=7; i++) {
-        if(Math.random() > 0.3) { 
-            activeMap[i] = nodeIDs[i];
-        }
-    }
-    if(!activeMap[3]) delete activeMap[7];
-    const n = 8;
+    
+    // 1. SINH CẤU TRÚC CÂY (Giữ nguyên logic của bạn)
+    const n = Math.floor(Math.random() * 4) + 6; 
     lcaAdj = Array.from({length: n}, () => []);
     lcaParent = new Array(n).fill(-1);
     lcaDepth = new Array(n).fill(0);
-    lcaNodes = []; 
-    const visualEdges = [
-        {p: 0, c: 1}, {p: 0, c: 2}, 
-        {p: 1, c: 3}, {p: 1, c: 4}, 
-        {p: 2, c: 5}, {p: 2, c: 6},
-        {p: 3, c: 7}              
-    ];
-    let edgesHTML = "";
-    visualEdges.forEach(edge => {
-        if (activeMap[edge.p] !== undefined && activeMap[edge.c] !== undefined) {
-            let u = activeMap[edge.p]; 
-            let v = activeMap[edge.c]; 
-            lcaAdj[u].push(v);
-            lcaParent[v] = u;
-            const p1 = positions[edge.p];
-            const p2 = positions[edge.c];
-            const pEnd = getPointAtRadius(p1, p2, 22);
-            edgesHTML += `
-                <line id="lca-edge-${u}-${v}" 
-                      x1="${p1.x}" y1="${p1.y}" x2="${pEnd.x}" y2="${pEnd.y}" 
-                      stroke="#b2bec3" stroke-width="2" marker-end="url(#arrowhead-lca)" />
-            `;
-        }
-    });
-    let rootReal = activeMap[0];
-    let queue = [{u: rootReal, d: 0}];
-    lcaDepth[rootReal] = 0;
-    while(queue.length > 0) {
-        let curr = queue.shift();
-        for(let child of lcaAdj[curr.u]) {
-            lcaDepth[child] = curr.d + 1;
-            queue.push({u: child, d: curr.d + 1});
-        }
+
+    for (let i = 1; i < n; i++) {
+        let parent = Math.floor(Math.random() * i); 
+        lcaAdj[parent].push(i);
+        lcaParent[i] = parent;
+        lcaDepth[i] = lcaDepth[parent] + 1;
     }
+
+    // ==========================================
+    // 2. TÍNH TOÁN ĐỘ CAO ĐỂ CĂN GIỮA CHIỀU DỌC
+    // ==========================================
+    const svgWidth = 600;
+    const svgHeight = 520; // Khớp với height của layout
+    const levelHeight = 90;
+    const maxDepth = Math.max(...lcaDepth);
+    const treeTotalHeight = maxDepth * levelHeight;
+    
+    // Tính startY để "cục" node nằm giữa theo chiều dọc
+    // Nếu cây thấp, nó sẽ tự đẩy xuống giữa. Nếu cây cao, nó sẽ bắt đầu từ 60px
+    const startY = Math.max(60, (svgHeight - treeTotalHeight) / 2);
+
+    let positions = new Array(n);
+    let depthCount = {}; 
+    let depthIndex = {}; 
+
+    for (let i = 0; i < n; i++) {
+        let d = lcaDepth[i];
+        if (!depthCount[d]) { depthCount[d] = 0; depthIndex[d] = 0; }
+        depthCount[d]++;
+    }
+
+    for (let i = 0; i < n; i++) {
+        let d = lcaDepth[i];
+        let count = depthCount[d];
+        let idx = depthIndex[d]++;
+
+        let spacingX = svgWidth / (count + 1);
+        let baseX = spacingX * (idx + 1);
+        
+        let randomJitterX = (Math.random() - 0.5) * 40;
+        let randomJitterY = (Math.random() - 0.5) * 15;
+
+        positions[i] = {
+            x: Math.max(40, Math.min(svgWidth - 40, baseX + randomJitterX)),
+            y: startY + (d * levelHeight) + randomJitterY
+        };
+    }
+
+    let displayIDs = Array.from({length: n}, (_, i) => i);
+    displayIDs.sort(() => Math.random() - 0.5);
+
+    // 3. VẼ EDGES VÀ NODES
+    let edgesHTML = "";
+    for (let i = 1; i < n; i++) {
+        let p = lcaParent[i];
+        const p1 = positions[p];
+        const p2 = positions[i];
+        const pEnd = (typeof getPointAtRadius === 'function') ? getPointAtRadius(p1, p2, 22) : p2;
+        
+        edgesHTML += `
+            <line id="lca-edge-${displayIDs[p]}-${displayIDs[i]}" 
+                  x1="${p1.x}" y1="${p1.y}" x2="${pEnd.x}" y2="${pEnd.y}" 
+                  stroke="#b2bec3" stroke-width="2" marker-end="url(#arrowhead-lca)" />
+        `;
+    }
+
     let nodesHTML = "";
     let validOptions = []; 
-    for(let i=0; i<8; i++) {
-        if(activeMap[i] !== undefined) {
-            let realID = activeMap[i];
-            let pos = positions[i];
-            validOptions.push(realID);
-            nodesHTML += `
-                <g transform="translate(${pos.x}, ${pos.y})">
-                    <circle id="lca-node-circle-${realID}" r="22" fill="#636e72" stroke="#b2bec3" stroke-width="2" />
-                    <text x="0" y="6" text-anchor="middle" fill="white" font-weight="bold" font-size="16" style="pointer-events: none;">${realID}</text>
-                    <text x="28" y="5" fill="#dfe6e9" font-size="10" font-style="italic">d=${lcaDepth[realID]}</text>
-                </g>
-            `;
-        }
+    for(let i = 0; i < n; i++) {
+        let realID = displayIDs[i];
+        let pos = positions[i];
+        validOptions.push(realID);
+        nodesHTML += `
+            <g transform="translate(${pos.x}, ${pos.y})">
+                <circle id="lca-node-circle-${realID}" r="22" fill="#636e72" stroke="#b2bec3" stroke-width="2" />
+                <text x="0" y="6" text-anchor="middle" fill="white" font-weight="bold" font-size="16" style="pointer-events: none;">${realID}</text>
+                <text x="28" y="5" fill="#dfe6e9" font-size="15" font-style="italic">d=${lcaDepth[i]}</text>
+            </g>
+        `;
     }
+    
     validOptions.sort((a,b) => a - b);
     const optionsHTML = validOptions.map(id => `<option value="${id}">Node ${id}</option>`).join('');
-    container.innerHTML = `
-        <div class="lca-layout" style="display: flex; gap: 10px; height: 520px; width: 100%;"> 
-            <div class="graph-area" style="flex: 2.5; background: #2d3436; border-radius: 8px; border: 1px solid #636e72; position: relative;">
-                <svg width="100%" height="100%" viewBox="0 0 600 520" preserveAspectRatio="xMidYMid meet">
-                    <defs>
-                        <marker id="arrowhead-lca" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" fill="#b2bec3" />
-                        </marker>
-                    </defs>
-                    ${edgesHTML}
-                    ${nodesHTML}
-                </svg>
+
+    // ==========================================
+    // 4. CHỈNH SỬA LAYOUT ĐỂ CĂN GIỮA TUYỆT ĐỐI
+    // ==========================================
+    // Tìm đoạn container.innerHTML trong hàm generateLCAUI()
+container.innerHTML = `
+    <div class="lca-layout" style="display: flex; gap: 8px; height: 400px; width: 100%; align-items: stretch; padding: 2px;"> 
+        
+        <div class="graph-area" style="flex: 1; background: #2d3436; border-radius: 8px; border: 1px solid #636e72; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+            <svg width="100%" height="100%" viewBox="0 0 600 520" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                    <marker id="arrowhead-lca" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#b2bec3" />
+                    </marker>
+                </defs>
+                ${edgesHTML}
+                ${nodesHTML}
+            </svg>
+        </div>
+
+        <div class="lca-sidebar" style="width: 150px; display: flex; flex-direction: column; gap: 6px; padding: 8px; background: #2d3436; border: 1px solid #636e72; border-radius: 8px; box-sizing: border-box;">
+            
+            <h4 style="color:#74b9ff; text-align:center; margin: 0; border-bottom:1px solid #555; padding-bottom:4px; font-size: 13px;">LCA Control</h4>
+            
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+                <label style="color:#dfe6e9; font-size: 11px;">Chọn Node U:</label>
+                <select id="lca-select-u" style="width:100%; padding:2px 4px; border-radius:4px; background:#444; color:white; border:1px solid #666; font-size:12px; cursor: pointer;">${optionsHTML}</select>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+                <label style="color:#dfe6e9; font-size: 11px;">Chọn Node V:</label>
+                <select id="lca-select-v" style="width:100%; padding:2px 4px; border-radius:4px; background:#444; color:white; border:1px solid #666; font-size:12px; cursor: pointer;">${optionsHTML}</select>
             </div>
 
-            <div class="lca-sidebar" style="flex: 1; display: flex; flex-direction: column; gap: 15px; padding: 10px; background: #2d3436; border: 1px solid #636e72; border-radius: 8px;">
-                <h4 style="color:#74b9ff; text-align:center; margin:0; border-bottom:1px solid #555; padding-bottom:10px;">LCA Control</h4>
-                
-                <div>
-                    <label style="color:#dfe6e9; font-size:13px;">Chọn Node U:</label>
-                    <select id="lca-select-u" style="width:100%; padding:5px; margin-top:5px;">${optionsHTML}</select>
-                </div>
-                
-                <div>
-                    <label style="color:#dfe6e9; font-size:13px;">Chọn Node V:</label>
-                    <select id="lca-select-v" style="width:100%; padding:5px; margin-top:5px;">${optionsHTML}</select>
-                </div>
-
-                <div id="lca-info" style="flex:1; background:#00000030; color:#fdcb6e; padding:10px; border-radius:5px; font-size:13px; overflow-y: auto;">
-                    Đã tạo dữ liệu ngẫu nhiên.<br>Chọn U, V rồi bấm "Chạy".
-                </div>
+            <div id="lca-info" style="flex:1; background:rgba(0,0,0,0.3); color:#fdcb6e; padding:6px; border-radius:5px; font-size:11px; overflow-y: auto; line-height: 1.3; border: 1px solid #444; margin-top: 2px;">
+                Đã sẵn sàng.
             </div>
         </div>
-    `;
+    </div>
+`;
+    // Reset lại giá trị Select ngẫu nhiên
     if(validOptions.length >= 2) {
         let rand1 = validOptions[Math.floor(Math.random() * validOptions.length)];
         let rand2 = validOptions[Math.floor(Math.random() * validOptions.length)];
-        while(rand1 === rand2) {
-             rand2 = validOptions[Math.floor(Math.random() * validOptions.length)];
-        }
+        while(rand1 === rand2) rand2 = validOptions[Math.floor(Math.random() * validOptions.length)];
         document.getElementById('lca-select-u').value = rand1;
         document.getElementById('lca-select-v').value = rand2;
     }
@@ -3900,349 +4315,6 @@ async function runLCA() {
         circle.style.opacity = "0.5"; await sleep(200);
         circle.style.opacity = "1"; await sleep(200);
     }
-    isRunning = false;
-    if(btnRun) btnRun.disabled = false;
-    if(btnPause) btnPause.disabled = true;
-}
-/// --- BFS ---
-let bfsAdj = [];
-let bfsNodes = [];
-let bfsVisited = [];
-let bfsQueueArr = [];
-function generateBFSUI() {
-    const container = document.getElementById('visualizer-container');
-    container.innerHTML = '';
-    
-    // 1. Layout Node cố định (Hình tháp) để dễ nhìn Layer
-    bfsNodes = [
-        {x: 300, y: 60},  // 0: Root
-        {x: 180, y: 180}, // 1: Lớp 1
-        {x: 300, y: 180}, // 2: Lớp 1
-        {x: 420, y: 180}, // 3: Lớp 1
-        {x: 120, y: 350}, // 4: Lớp 2
-        {x: 240, y: 350}, // 5: Lớp 2
-        {x: 360, y: 350}, // 6: Lớp 2 (Sửa toạ độ chút cho đều)
-        {x: 480, y: 350}  // 7: Lớp 2 (Thêm node 7 cho đông vui)
-    ];
-    
-    // Đổi tên node hiển thị
-    const nodeNames = ["0", "1", "2", "3", "4", "5", "6", "7"];
-    const n = 8;
-
-    // 2. RANDOM HOÁ KẾT NỐI (CONNECTIONS)
-    bfsAdj = Array.from({length: n}, () => []);
-    let connections = [];
-
-    // Nhóm các node theo lớp
-    let layer1 = [1, 2, 3];
-    let layer2 = [4, 5, 6, 7];
-
-    // A. Nối Root (0) xuống Lớp 1 (Random ít nhất 2 đường để không bị cụt)
-    // Xáo trộn lớp 1 để ngẫu nhiên
-    layer1.sort(() => Math.random() - 0.5);
-    
-    // Chắc chắn nối 2 node đầu tiên
-    connections.push({u: 0, v: layer1[0]});
-    connections.push({u: 0, v: layer1[1]});
-    
-    // Node thứ 3 hên xui 50/50
-    if(Math.random() > 0.5) connections.push({u: 0, v: layer1[2]});
-
-    // B. Nối Lớp 1 xuống Lớp 2
-    // Đảm bảo mỗi node ở Lớp 2 đều có ít nhất 1 cha (để không bị cô lập)
-    layer2.forEach(child => {
-        // Chọn ngẫu nhiên 1 cha từ layer 1
-        let randomParent = layer1[Math.floor(Math.random() * layer1.length)];
-        connections.push({u: randomParent, v: child});
-        
-        // 30% cơ hội có thêm 1 cha nữa (Tạo đa đường dẫn - Graph)
-        if(Math.random() > 0.7) {
-            let extraParent = layer1[Math.floor(Math.random() * layer1.length)];
-            if(extraParent !== randomParent) {
-                connections.push({u: extraParent, v: child});
-            }
-        }
-    });
-
-    // C. (Tuỳ chọn) Nối ngang hàng (Cross edges) để tạo vòng
-    // Ví dụ nối 1->2 hoặc 2->3
-    if(Math.random() > 0.6) connections.push({u: 1, v: 2});
-    if(Math.random() > 0.6) connections.push({u: 2, v: 3});
-
-    // 3. VẼ DÂY VÀ NODE
-    let edgesHTML = "";
-    connections.forEach(pair => {
-        // Thêm vào danh sách kề cho thuật toán chạy
-        bfsAdj[pair.u].push(pair.v);
-        
-        const p1 = bfsNodes[pair.u];
-        const p2 = bfsNodes[pair.v];
-        const pEnd = getPointAtRadius(p1, p2, 22);
-
-        edgesHTML += `
-            <line id="bfs-edge-${pair.u}-${pair.v}" 
-                  x1="${p1.x}" y1="${p1.y}" x2="${pEnd.x}" y2="${pEnd.y}" 
-                  stroke="#b2bec3" stroke-width="2" marker-end="url(#arrowhead-bfs)" />
-        `;
-    });
-
-    let nodesHTML = bfsNodes.map((pos, i) => `
-    <g transform="translate(${pos.x}, ${pos.y})">
-            <circle id="bfs-node-circle-${i}" r="22" fill="#636e72" stroke="#b2bec3" stroke-width="2" />
-            <text x="0" y="6" text-anchor="middle" fill="white" font-weight="bold" font-size="16" style="pointer-events: none;">${nodeNames[i]}</text>
-        </g>
-    `).join('');
-
-    // 4. RENDER HTML
-    container.innerHTML = `
-        <div class="bfs-layout" style="display: flex; gap: 10px; height: 520px; width: 100%;"> 
-            <div class="graph-area" style="flex: 2.5; background: #2d3436; border: 1px solid #636e72; position: relative;">
-                <svg width="100%" height="100%" viewBox="0 0 600 520" preserveAspectRatio="xMidYMid meet">
-                    <defs>
-                        <marker id="arrowhead-bfs" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" fill="#b2bec3" />
-                        </marker>
-                    </defs>
-                    ${edgesHTML}
-                    ${nodesHTML}
-                </svg>
-            </div>
-
-            <div class="bfs-sidebar" style="flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 10px; background: #2d3436; border: 1px solid #636e72;">
-                <div style="background: #00000030; padding: 10px; border-radius: 5px; border: 1px solid #636e72;">
-                    <h5 style="color:#e17055; margin:0 0 5px 0; text-align:center;">Queue (Hàng Đợi)</h5>
-                    <div id="bfs-queue-vis" style="display:flex; gap:5px; height:40px; overflow-x:auto; align-items:center; padding: 2px;">
-                        <span style="color:#636e72; font-size:12px; width:100%; text-align:center;">Empty</span>
-                    </div>
-                </div>
-
-                <h4 style="color:#a29bfe; text-align:center; margin:0; border-bottom:1px solid #555; padding-bottom:10px;">BFS Log</h4>
-                <div id="bfs-info" style="flex:1; background:#00000030; color:#fdcb6e; padding:10px; font-size:13px; overflow-y: auto;">
-                    Đã tạo đồ thị ngẫu nhiên.<br>Node 0 là gốc.
-                </div>
-            </div>
-        </div>
-    `;
-}
-function updateQueueUI() {
-    const qContainer = document.getElementById('bfs-queue-vis');
-    if(!qContainer) return;
-    
-    if(bfsQueueArr.length === 0) {
-        qContainer.innerHTML = `<span style="color:#636e72; font-size:12px; width:100%; text-align:center;">Empty</span>`;
-        return;
-    }
-
-    // Vẽ các phần tử trong Queue
-    qContainer.innerHTML = bfsQueueArr.map(id => 
-        `<div style="min-width:30px; height:30px; background:#e17055; color:white; border-radius:4px; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px; box-shadow: 2px 2px 5px rgba(0,0,0,0.5);">${id}</div>`
-    ).join('');
-}
-async function runBFS() {
-    if(typeof isRunning !== 'undefined' && isRunning) { shouldKill = true; isRunning = false; await sleep(100); }
-    const btnRun = document.getElementById('btn-run');
-    const btnPause = document.getElementById('btn-pause');
-    const infoBox = document.getElementById('bfs-info');
-
-    // 2. Init Data
-    if (!bfsAdj || bfsAdj.length === 0) { alert("Chưa có dữ liệu!"); return; }
-    
-    // Reset UI
-    const n = 7;
-    for(let i=0; i<n; i++) {
-        let c = document.getElementById(`bfs-node-circle-${i}`);
-        if(c) { c.style.fill="#636e72"; c.style.stroke="#b2bec3"; c.style.strokeWidth="2"; }
-    }
-    document.querySelectorAll('line[id^="bfs-edge-"]').forEach(l => { 
-        l.setAttribute('stroke', '#b2bec3'); l.setAttribute('stroke-width', '2'); 
-    });
-
-    // 3. Setup BFS
-    isRunning = true; isPaused = false; shouldKill = false;
-    if(btnRun) btnRun.disabled = true; 
-    if(btnPause) { btnPause.disabled = false; btnPause.innerText = "Tạm dừng"; }
-
-    let startNode = 0;
-    bfsVisited = new Array(n).fill(false);
-    bfsQueueArr = []; // Clear queue
-
-    // --- BẮT ĐẦU THUẬT TOÁN ---
-    infoBox.innerHTML = `Bắt đầu: Push <b>${startNode}</b> vào Queue.`;
-    bfsVisited[startNode] = true;
-    bfsQueueArr.push(startNode);
-    updateQueueUI();
-    document.getElementById(`bfs-node-circle-${startNode}`).style.fill = "#e17055"; 
-    await sleep(1000);
-    while(bfsQueueArr.length > 0) {
-        if(shouldKill) break;
-        while(isPaused) { infoBox.innerHTML = "Tạm dừng..."; await sleep(100); }
-        let u = bfsQueueArr.shift();
-        updateQueueUI();
-        let uCircle = document.getElementById(`bfs-node-circle-${u}`);
-        if(uCircle) { uCircle.style.fill = "#0984e3"; uCircle.style.stroke = "#fff"; }
-        infoBox.innerHTML = `Lấy <b>${u}</b> ra khỏi Queue để xét.`;
-        await sleep(800);
-        let neighbors = bfsAdj[u];
-        if(neighbors.length > 0) {
-            infoBox.innerHTML += `<br>→ Duyệt các con của ${u}:`;
-            for(let v of neighbors) {
-                if(shouldKill) { isRunning = false; if(btnRun) btnRun.disabled=false; return; }
-                while(isPaused) await sleep(100);
-                let line = document.getElementById(`bfs-edge-${u}-${v}`);
-                if(line) { line.setAttribute('stroke', '#0984e3'); line.setAttribute('stroke-width', '4'); }
-                await sleep(300);
-                if(!bfsVisited[v]) {
-                    bfsVisited[v] = true;
-                    bfsQueueArr.push(v);
-                    updateQueueUI();
-                    let vCircle = document.getElementById(`bfs-node-circle-${v}`);
-                    if(vCircle) vCircle.style.fill = "#e17055";
-                    infoBox.innerHTML += ` [Thêm ${v}]`;
-                    await sleep(800);
-                } else {
-                    if(line) line.setAttribute('stroke', '#b2bec3'); // Trả màu dây
-                }
-                if(line) { line.setAttribute('stroke', '#b2bec3'); line.setAttribute('stroke-width', '2'); }
-            }
-        } else {
-            infoBox.innerHTML += `<br>→ ${u} là lá (không có con).`;
-        }
-        if(uCircle) { uCircle.style.fill = "#00b894"; uCircle.style.strokeWidth = "2"; }
-        await sleep(500);
-    }
-    infoBox.innerHTML += "<br><b>Hàng đợi rỗng. Hoàn tất BFS!</b>";
-    isRunning = false;
-    if(btnRun) btnRun.disabled = false;
-    if(btnPause) btnPause.disabled = true;
-}
-/// --- DFS ---
-let dfsAdj = [];
-let dfsNodes = [];
-let dfsVisited = [];
-let dfsStackArr = [];
-function generateDFSUI() {
-    const container = document.getElementById('visualizer-container');
-    container.innerHTML = '';
-    dfsNodes = [
-        {x: 60,  y: 250}, 
-        {x: 200, y: 100}, 
-        {x: 200, y: 400}, 
-        {x: 400, y: 100}, 
-        {x: 400, y: 400}, 
-        {x: 540, y: 250}  
-    ];
-    const n = 6;
-    const nodeNames = ["A", "B", "C", "D", "E", "F"];
-    dfsAdj = Array.from({length: n}, () => []);
-    const connections = [
-        {u: 0, v: 1}, {u: 0, v: 2}, 
-        {u: 1, v: 3}, {u: 1, v: 4}, 
-        {u: 2, v: 4}, 
-        {u: 3, v: 5}, 
-        {u: 4, v: 5}
-    ];
-    let edgesHTML = "";
-    connections.forEach(pair => {
-        dfsAdj[pair.u].push(pair.v);
-        const p1 = dfsNodes[pair.u];
-        const p2 = dfsNodes[pair.v];
-        const pEnd = getPointAtRadius(p1, p2, 22);
-        edgesHTML += `
-            <line id="dfs-edge-${pair.u}-${pair.v}" 
-                  x1="${p1.x}" y1="${p1.y}" x2="${pEnd.x}" y2="${pEnd.y}" 
-                  stroke="#b2bec3" stroke-width="2" marker-end="url(#arrowhead-dfs)" />
-        `;
-    });
-    let nodesHTML = dfsNodes.map((pos, i) => `
-        <g transform="translate(${pos.x}, ${pos.y})">
-            <circle id="dfs-node-circle-${i}" r="22" fill="#636e72" stroke="#b2bec3" stroke-width="2" />
-            <text x="0" y="6" text-anchor="middle" fill="white" font-weight="bold" font-size="16" style="pointer-events: none;">${nodeNames[i]}</text>
-            
-            <text id="dfs-status-${i}" x="0" y="-30" text-anchor="middle" fill="#dfe6e9" font-size="11" font-weight="bold" style="opacity:0">Visited</text>
-        </g>
-    `).join('');
-    container.innerHTML = `
-        <div class="dfs-layout" style="display: flex; gap: 10px; height: 520px; width: 100%;"> 
-            <div class="graph-area" style="flex: 2.5; background: #2d3436; border: 1px solid #636e72; position: relative;">
-                <svg width="100%" height="100%" viewBox="0 0 600 520" preserveAspectRatio="xMidYMid meet">
-                    <defs>
-                        <marker id="arrowhead-dfs" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" fill="#b2bec3" />
-                        </marker>
-                    </defs>
-                    ${edgesHTML}
-                    ${nodesHTML}
-                </svg>
-            </div>
-
-            <div class="dfs-sidebar" style="flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 10px; background: #2d3436; border: 1px solid #636e72;">
-                <h4 style="color:#a29bfe; text-align:center; margin:0; border-bottom:1px solid #555; padding-bottom:10px;">DFS Log</h4>
-                
-                <div id="dfs-info" style="flex:1; background:#00000030; color:#fdcb6e; padding:10px; font-size:13px; overflow-y: auto;">
-                Đồ thị đã sẵn sàng.<br>Bắt đầu từ Node A.
-                </div>
-            </div>
-        </div>
-    `;
-}
-async function runDFS() {
-    if(typeof isRunning !== 'undefined' && isRunning) { shouldKill = true; isRunning = false; await sleep(100); }
-    const btnRun = document.getElementById('btn-run');
-    const btnPause = document.getElementById('btn-pause');
-    const infoBox = document.getElementById('dfs-info');
-    const nodeNames = ["A", "B", "C", "D", "E", "F"];
-    if (!dfsAdj || dfsAdj.length === 0) { alert("Chưa có dữ liệu!"); return; }
-    dfsVisited = new Array(6).fill(false);
-    for(let i=0; i<6; i++) {
-        let c = document.getElementById(`dfs-node-circle-${i}`);
-        let t = document.getElementById(`dfs-status-${i}`);
-        if(c) { c.style.fill="#636e72"; c.style.stroke="#b2bec3"; c.style.strokeWidth="2"; }
-        if(t) t.style.opacity = "0";
-    }
-    document.querySelectorAll('line[id^="dfs-edge-"]').forEach(l => { 
-        l.setAttribute('stroke', '#b2bec3'); l.setAttribute('stroke-width', '2'); 
-    });
-    isRunning = true; isPaused = false; shouldKill = false;
-    if(btnRun) btnRun.disabled = true; 
-    if(btnPause) { btnPause.disabled = false; btnPause.innerText = "Tạm dừng"; }
-    infoBox.innerHTML = "Bắt đầu thuật toán DFS từ Node A...";
-    await sleep(800);
-    async function dfsRecursive(u) {
-        if(shouldKill) return;
-        dfsVisited[u] = true;
-        let circle = document.getElementById(`dfs-node-circle-${u}`);
-        let label = document.getElementById(`dfs-status-${u}`);
-        if(circle) circle.style.fill = "#0984e3"; 
-        if(label) { label.textContent = "Visiting"; label.style.opacity = "1"; label.style.fill = "#74b9ff"; }
-        infoBox.innerHTML += `<br>→ Thăm <b>${nodeNames[u]}</b>`;
-        await sleep(1000);
-        let neighbors = dfsAdj[u].sort((a,b) => a-b); 
-        for (let v of neighbors) {
-            if(shouldKill) return;
-            while(isPaused) { infoBox.innerHTML += "."; await sleep(500); }
-            if (!dfsVisited[v]) {
-                let line = document.getElementById(`dfs-edge-${u}-${v}`);
-                if(line) { line.setAttribute('stroke', '#0984e3'); line.setAttribute('stroke-width', '4'); }
-                infoBox.innerHTML += `<br>... đi sâu xuống ${nodeNames[v]}`;
-                await sleep(800);
-                await dfsRecursive(v);
-                if(shouldKill) return;
-                infoBox.innerHTML += `<br>← Quay lui về <b>${nodeNames[u]}</b>`;
-                if(circle) circle.style.fill = "#0984e3"; 
-                if(line) { line.setAttribute('stroke', '#b2bec3'); line.setAttribute('stroke-width', '2'); } // Trả màu dây
-                await sleep(800);
-            }
-        }
-        if(circle) {
-            circle.style.fill = "#00b894"; 
-            circle.style.stroke = "#fff";
-        }
-        if(label) { label.textContent = "Finished"; label.style.fill = "#55efc4"; }
-        infoBox.innerHTML += `<br>✓ Node <b>${nodeNames[u]}</b> đã xong.`;
-        await sleep(500);
-    }
-    await dfsRecursive(0); 
-    infoBox.innerHTML += "<br><b>Hoàn tất thuật toán DFS!</b>";
     isRunning = false;
     if(btnRun) btnRun.disabled = false;
     if(btnPause) btnPause.disabled = true;
@@ -4566,6 +4638,361 @@ async function runTwoPointers() {
         logBox.style.backgroundColor = "#fab1a0";
     }
 
+    isRunning = false;
+    if(btnRun) btnRun.disabled = false;
+    if(btnPause) btnPause.disabled = true;
+}
+
+let graphNodes = [];
+let graphAdj = [];
+// ==========================================
+// TẠO GIAO DIỆN CHUNG CHO DFS / BFS
+// ==========================================
+// ==========================================
+// TẠO GIAO DIỆN CHUNG CHO DFS / BFS (BẢN CHUẨN KHOA HỌC)
+// ==========================================
+function generateGraphUI(algoType) {
+    const container = document.getElementById('visualizer-container');
+    container.innerHTML = '';
+    
+    // 1. SINH CẤU TRÚC ĐỒ THỊ (Phân tầng để không bị rối)
+    const n = Math.floor(Math.random() * 3) + 6; // 6 đến 8 nodes
+    graphNodes = [];
+    graphAdj = Array.from({ length: n }, () => []);
+
+    // Thuật toán chia các node thành từng "tầng" từ trên xuống dưới
+    let levels = [[0]];
+    let currNode = 1;
+    let numLevels = n === 8 ? 4 : 3; 
+
+    for (let i = 1; i < numLevels; i++) {
+        let count = (i === numLevels - 1) ? (n - currNode) : (Math.floor(Math.random() * 2) + 2);
+        if (n - currNode <= count) count = n - currNode;
+        let arr = [];
+        for (let j = 0; j < count; j++) arr.push(currNode++);
+        levels.push(arr);
+        if (currNode >= n) break;
+    }
+
+    // 2. TÍNH TỌA ĐỘ THEO TẦNG TRONG KHUNG 600x520
+    const svgWidth = 600;
+    const svgHeight = 520;
+    const startY = 70;
+    const levelHeight = (svgHeight - 140) / (levels.length - 1 || 1); 
+    let positions = new Array(n);
+
+    for (let l = 0; l < levels.length; l++) {
+        let arr = levels[l];
+        let spacingX = svgWidth / (arr.length + 1);
+        for (let i = 0; i < arr.length; i++) {
+            let u = arr[i];
+            // Xếp dàn đều ngang, thêm xíu độ lệch (jitter) cho tự nhiên
+            let x = spacingX * (i + 1) + (Math.random() - 0.5) * 30;
+            let y = startY + l * levelHeight + (Math.random() - 0.5) * 20;
+            positions[u] = { id: u, x: x, y: y };
+            graphNodes.push(positions[u]);
+        }
+    }
+
+    // Tạo các cạnh nối (Chỉ nối từ trên xuống dưới hoặc ngang để không rối)
+    const addedEdges = new Set();
+    for (let l = 0; l < levels.length - 1; l++) {
+        let currL = levels[l];
+        let nextL = levels[l+1];
+        // Đảm bảo node tầng dưới luôn có dây nối từ tầng trên
+        for (let v of nextL) {
+            let u = currL[Math.floor(Math.random() * currL.length)];
+            graphAdj[u].push(v);
+            addedEdges.add(`${u}-${v}`);
+        }
+        // Thêm ngẫu nhiên dây nối chéo giữa 2 tầng
+        let extraU = currL[Math.floor(Math.random() * currL.length)];
+        let extraV = nextL[Math.floor(Math.random() * nextL.length)];
+        if (!addedEdges.has(`${extraU}-${extraV}`)) {
+            graphAdj[extraU].push(extraV);
+            addedEdges.add(`${extraU}-${extraV}`);
+        }
+    }
+    // Lâu lâu thêm 1 dây nối nhảy cóc để ra dáng Đồ thị thay vì Cây
+    if (n >= 6) {
+        let u = Math.floor(Math.random() * (n - 3));
+        let v = u + 2 + Math.floor(Math.random() * 2); 
+        if (v < n && !addedEdges.has(`${u}-${v}`) && u !== v) {
+            graphAdj[u].push(v);
+        }
+    }
+
+    // 3. VẼ EDGES BẰNG TOÁN HỌC (Giải quyết triệt để mũi tên lệch)
+    let edgesHTML = "";
+    const NODE_RADIUS = 22; 
+    const OFFSET = 2; // Khoảng cách viền
+
+    for (let u = 0; u < n; u++) {
+        for (let v of graphAdj[u]) {
+            let p1 = positions[u];
+            let p2 = positions[v];
+            
+            // Tính vector khoảng cách giữa 2 điểm
+            let dx = p2.x - p1.x;
+            let dy = p2.y - p1.y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist > 0) {
+                let r = NODE_RADIUS + OFFSET;
+                // Rút ngắn tọa độ đầu và cuối đúng bằng bán kính hình tròn!
+                // Sợi dây sẽ CHỈ nằm giữa 2 viền tròn, không đâm vào tâm.
+                let startX = p1.x + (dx / dist) * r;
+                let startY = p1.y + (dy / dist) * r;
+                let endX = p2.x - (dx / dist) * r;
+                let endY = p2.y - (dy / dist) * r;
+
+                edgesHTML += `
+                    <line id="graph-edge-${u}-${v}" 
+                          x1="${startX}" y1="${startY}" x2="${endX}" y2="${endY}" 
+                          stroke="#b2bec3" stroke-width="2" marker-end="url(#arrowhead-graph)" transition="all 0.3s" />
+                `;
+            }
+        }
+    }
+
+    // 4. VẼ NODES
+    let nodesHTML = "";
+    for(let i = 0; i < n; i++) {
+        let pos = positions[i];
+        nodesHTML += `
+            <g transform="translate(${pos.x}, ${pos.y})">
+                <circle id="graph-node-circle-${i}" r="22" fill="#636e72" stroke="#b2bec3" stroke-width="2" style="transition: all 0.3s;" />
+                <text x="0" y="6" text-anchor="middle" fill="white" font-weight="bold" font-size="16" style="pointer-events: none;">${i}</text>
+            </g>
+        `;
+    }
+
+    const optionsHTML = graphNodes.map(n => `<option value="${n.id}">Node ${n.id}</option>`).join('');
+    let algoName = algoType === 'DFS' ? 'DFS Control' : 'BFS Control';
+
+    // 5. RENDER LAYOUT
+    container.innerHTML = `
+    <div class="graph-layout" style="display: flex; gap: 8px; height: 400px; width: 100%; align-items: stretch; padding: 2px;"> 
+        
+        <div class="graph-area" style="flex: 1; background: #2d3436; border-radius: 8px; border: 1px solid #636e72; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+            <svg width="100%" height="100%" viewBox="0 0 600 520" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                    <marker id="arrowhead-graph" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#b2bec3" />
+                    </marker>
+                </defs>
+                ${edgesHTML}
+                ${nodesHTML}
+            </svg>
+        </div>
+
+        <div class="graph-sidebar" style="width: 150px; display: flex; flex-direction: column; gap: 6px; padding: 8px; background: #2d3436; border: 1px solid #636e72; border-radius: 8px; box-sizing: border-box;">
+            
+            <h4 style="color:#74b9ff; text-align:center; margin: 0; border-bottom:1px solid #555; padding-bottom:4px; font-size: 13px;">${algoName}</h4>
+            
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+                <label style="color:#dfe6e9; font-size: 11px;">Điểm bắt đầu:</label>
+                <select id="graph-start-node" style="width:100%; padding:2px 4px; border-radius:4px; background:#444; color:white; border:1px solid #666; font-size:12px; cursor: pointer;">
+                    ${optionsHTML}
+                </select>
+            </div>
+
+            <div id="graph-info" style="flex:1; background:rgba(0,0,0,0.3); color:#fdcb6e; padding:6px; border-radius:5px; font-size:11px; overflow-y: auto; line-height: 1.3; border: 1px solid #444; margin-top: 2px;">
+                Sẵn sàng duyệt...
+            </div>
+        </div>
+    </div>
+    `;
+}
+function generateDFSUI() {
+    generateGraphUI('DFS');
+}
+
+function generateBFSUI() {
+    generateGraphUI('BFS');
+}
+// ==========================================
+// CHẠY THUẬT TOÁN DFS
+// ==========================================
+let dfsVisited = [];
+
+async function runDFS() {
+    if(typeof isRunning !== 'undefined' && isRunning) { shouldKill = true; isRunning = false; await sleep(100); }
+    const btnRun = document.getElementById('btn-run');
+    const btnPause = document.getElementById('btn-pause');
+    const infoBox = document.getElementById('graph-info');
+    const startNode = parseInt(document.getElementById('graph-start-node').value);
+
+    isRunning = true; isPaused = false; shouldKill = false;
+    if(btnRun) btnRun.disabled = true;
+    if(btnPause) { btnPause.disabled = false; btnPause.innerText = "Tạm dừng"; }
+
+    let n = graphNodes.length;
+    dfsVisited = new Array(n).fill(false);
+
+    // Reset UI
+    for(let i = 0; i < n; i++) {
+        let node = document.getElementById(`graph-node-circle-${i}`);
+        if(node) { node.setAttribute('fill', '#636e72'); node.setAttribute('stroke', '#b2bec3'); }
+    }
+    for(let u = 0; u < n; u++) {
+        for(let v of graphAdj[u]) {
+            let edge = document.getElementById(`graph-edge-${u}-${v}`);
+            if(edge) { edge.setAttribute('stroke', '#b2bec3'); edge.setAttribute('stroke-width', '2'); }
+        }
+    }
+
+    infoBox.innerHTML = `DFS từ Node <b>${startNode}</b>...`;
+    await sleep(800);
+    await dfsHelper(startNode, infoBox);
+
+    if(!shouldKill) {
+        infoBox.innerHTML += `<br><b style="color: #00b894;">Hoàn thành DFS!</b>`;
+        infoBox.scrollTop = infoBox.scrollHeight;
+    }
+    isRunning = false;
+    if(btnRun) btnRun.disabled = false;
+    if(btnPause) btnPause.disabled = true;
+}
+
+async function dfsHelper(u, infoBox) {
+    if(shouldKill) return;
+    while(isPaused) await sleep(100);
+
+    dfsVisited[u] = true;
+    let nodeU = document.getElementById(`graph-node-circle-${u}`);
+    if(nodeU) {
+        nodeU.setAttribute('fill', '#e67e22'); // Cam
+        nodeU.setAttribute('stroke', '#fff');
+    }
+    infoBox.innerHTML += `<br>→ Thăm Node <b>${u}</b>`;
+    infoBox.scrollTop = infoBox.scrollHeight;
+    await sleep(800);
+
+    for(let v of graphAdj[u]) {
+        if(shouldKill) return;
+        while(isPaused) await sleep(100);
+
+        let edge = document.getElementById(`graph-edge-${u}-${v}`);
+        if(!dfsVisited[v]) {
+            if(edge) {
+                edge.setAttribute('stroke', '#e67e22');
+                edge.setAttribute('stroke-width', '4');
+            }
+            infoBox.innerHTML += `<br>&nbsp;&nbsp; Đi cạnh ${u} ➔ ${v}...`;
+            infoBox.scrollTop = infoBox.scrollHeight;
+            await sleep(600);
+
+            await dfsHelper(v, infoBox);
+
+            if(shouldKill) return;
+            while(isPaused) await sleep(100);
+            
+            infoBox.innerHTML += `<br>← Backtrack về <b>${u}</b>`;
+            infoBox.scrollTop = infoBox.scrollHeight;
+            if(nodeU) nodeU.setAttribute('fill', '#e67e22'); 
+            await sleep(600);
+        } else {
+            if(edge && edge.getAttribute('stroke') === '#b2bec3') {
+                edge.setAttribute('stroke', '#ff7675'); // Đỏ nhạt (bỏ qua)
+            }
+        }
+    }
+
+    if(nodeU) {
+        nodeU.setAttribute('fill', '#00b894'); // Xanh lá
+        nodeU.setAttribute('stroke', '#fff');
+    }
+}
+
+// ==========================================
+// CHẠY THUẬT TOÁN BFS
+// ==========================================
+async function runBFS() {
+    if(typeof isRunning !== 'undefined' && isRunning) { shouldKill = true; isRunning = false; await sleep(100); }
+    const btnRun = document.getElementById('btn-run');
+    const btnPause = document.getElementById('btn-pause');
+    const infoBox = document.getElementById('graph-info');
+    const startNode = parseInt(document.getElementById('graph-start-node').value);
+
+    isRunning = true; isPaused = false; shouldKill = false;
+    if(btnRun) btnRun.disabled = true;
+    if(btnPause) { btnPause.disabled = false; btnPause.innerText = "Tạm dừng"; }
+
+    let n = graphNodes.length;
+    let bfsVisited = new Array(n).fill(false);
+    let queue = [];
+
+    // Reset UI
+    for(let i = 0; i < n; i++) {
+        let node = document.getElementById(`graph-node-circle-${i}`);
+        if(node) { node.setAttribute('fill', '#636e72'); node.setAttribute('stroke', '#b2bec3'); }
+    }
+    for(let u = 0; u < n; u++) {
+        for(let v of graphAdj[u]) {
+            let edge = document.getElementById(`graph-edge-${u}-${v}`);
+            if(edge) { edge.setAttribute('stroke', '#b2bec3'); edge.setAttribute('stroke-width', '2'); }
+        }
+    }
+
+    infoBox.innerHTML = `BFS từ Node <b>${startNode}</b>...`;
+    
+    queue.push(startNode);
+    bfsVisited[startNode] = true;
+    
+    let nodeStart = document.getElementById(`graph-node-circle-${startNode}`);
+    if(nodeStart) nodeStart.setAttribute('fill', '#e17055'); 
+    infoBox.innerHTML += `<br>→ Đẩy ${startNode} vào Queue`;
+    await sleep(800);
+
+    while(queue.length > 0) {
+        if(shouldKill) break;
+        while(isPaused) await sleep(100);
+
+        let u = queue.shift();
+        let nodeU = document.getElementById(`graph-node-circle-${u}`);
+        if(nodeU) {
+            nodeU.setAttribute('fill', '#0984e3'); // Xanh dương
+            nodeU.setAttribute('stroke', '#fff');
+        }
+        infoBox.innerHTML += `<br>=> Xét <b>${u}</b>`;
+        infoBox.scrollTop = infoBox.scrollHeight;
+        await sleep(800);
+
+        for(let v of graphAdj[u]) {
+            if(shouldKill) break;
+            while(isPaused) await sleep(100);
+
+            let edge = document.getElementById(`graph-edge-${u}-${v}`);
+            if(!bfsVisited[v]) {
+                if(edge) {
+                    edge.setAttribute('stroke', '#0984e3');
+                    edge.setAttribute('stroke-width', '4');
+                }
+                
+                bfsVisited[v] = true;
+                queue.push(v);
+                let nodeV = document.getElementById(`graph-node-circle-${v}`);
+                if(nodeV) nodeV.setAttribute('fill', '#e17055'); 
+                infoBox.innerHTML += `<br>&nbsp;&nbsp; + Tìm thấy ${v}`;
+                infoBox.scrollTop = infoBox.scrollHeight;
+                await sleep(600);
+            } else {
+                if(edge && edge.getAttribute('stroke') === '#b2bec3') {
+                    edge.setAttribute('stroke', '#ff7675'); 
+                }
+            }
+        }
+        
+        if(nodeU) {
+            nodeU.setAttribute('fill', '#00b894'); // Xanh ngọc
+        }
+    }
+
+    if(!shouldKill) {
+        infoBox.innerHTML += `<br><b style="color: #00b894;">Hoàn thành BFS!</b>`;
+        infoBox.scrollTop = infoBox.scrollHeight;
+    }
     isRunning = false;
     if(btnRun) btnRun.disabled = false;
     if(btnPause) btnPause.disabled = true;

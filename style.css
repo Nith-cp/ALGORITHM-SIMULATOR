@@ -85,6 +85,8 @@ header {
     box-shadow: var(--shadow);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    max-width: 100%;
 }
 .arena-header {
     display: flex;
@@ -114,19 +116,19 @@ header {
     z-index: 10;
 }
 .visualizer {
-    display: flex; 
-    flex-direction: row;
-    align-items: flex-end; 
-    justify-content: center;
-    position: relative; 
-    min-height: 400px;  
-    height: 500px;     
-    width: 100%;
-    background-color: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    overflow: hidden;   
-    padding: 20px;    
+    padding-top: 20px;
+    background: white;
+    border: 1px solid #e1e4e8;
+    border-radius: var(--border-radius);
+    flex-grow: 1;
+    position: relative;
+    overflow: hidden; 
+
+    /* THÊM CÁC DÒNG NÀY */
+    display: flex;
+    justify-content: center; /* Căn giữa theo chiều ngang */
+    align-items: center;     /* Căn giữa theo chiều dọc */
+    padding: 20px;           /* Tạo khoảng trống cách viền */
 }
 .tree-level {
     display: flex;
@@ -498,12 +500,23 @@ input[type=range] {
     gap: 20px;
 }
 .graph-area {
+   flex: 2.5; 
+    background: #2d3436; 
+    border-radius: 8px; 
+    border: 1px solid #636e72; 
     position: relative;
-    width: 60%;
-    height: 400px;
-    border: 2px solid #636e72;
-    border-radius: 8px;
-    background: #2d3436;
+    
+    /* Căn giữa nội dung bên trong (SVG) */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px; /* Tạo khoảng cách an toàn với viền */
+    box-sizing: border-box;
+}
+.graph-area svg {
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
 }
 .graph-node {
     width: 40px;
@@ -750,8 +763,8 @@ input[type=range] {
     gap: 4px;
     background: #2d3436;
     border: 1px solid #636e72;
-    border-radius: 8px;
-    padding: 20px 10px 0 10px;
+    border-radius: 7px;
+    padding: 150px 10px 0 10px;
     border-bottom: 2px solid #b2bec3; /* Tạo đường đất */
 }
 
@@ -780,7 +793,7 @@ input[type=range] {
     background: #2d3436;
     border: 1px solid #636e72;
     border-radius: 8px;
-    padding: 10px;
+    padding: 1px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -867,6 +880,7 @@ input[type=range] {
 
 .frog-chart-area {
     flex: 2;
+    margin-top: 15px;
     background: #dfe6e9; /* Nền sáng hơn chút giống bầu trời */
     border: 1px solid #b2bec3;
     border-radius: 8px;
@@ -937,8 +951,8 @@ input[type=range] {
 
 /* BẢNG DP */
 .frog-table-area {
-    flex: 1;
-    background: #2d3436;
+    flex: 0 0 auto;
+    background: #b2bec3;
     padding: 10px;
     border-radius: 8px;
     display: flex;
@@ -949,12 +963,12 @@ input[type=range] {
 .frog-grid {
     display: flex;
     gap: 5px;
-    margin-top: 5px;
+    margin-top: 10px;
 }
 
 .frog-dp-box {
-    width: 45px;
-    height: 45px;
+    width: 55px;
+    height: 55px;
     background: #353b48;
     border: 1px solid #7f8fa6;
     display: flex;
@@ -964,11 +978,11 @@ input[type=range] {
     color: white;
     border-radius: 4px;
 }
-.frog-dp-box .idx { font-size: 10px; color: #bbb; }
+.frog-dp-box .idx { font-size: 20px; color: #bbb; }
 .frog-dp-box .val { font-size: 14px; font-weight: bold; color: #74b9ff; }
 
 .frog-log {
-    height: 60px;
+    height: 30px;
     background: #2d3436;
     color: #fdcb6e;
     padding: 10px;
@@ -1247,9 +1261,9 @@ input[type=range] {
 
 /* 2. Khu vực vẽ cây (Canvas) */
 .st-canvas {
-    position: relative;
+    position: flex;
     width: 100%;
-    height: 380px;          /* Chiều cao cố định cho cây */
+    height: 320px;          /* Chiều cao cố định cho cây */
     background: #2d3436;
     border-radius: 8px;
     border: 1px solid #636e72;
@@ -1259,7 +1273,7 @@ input[type=range] {
 /* 3. Khu vực Log (Bảng chữ chạy) - Nằm riêng bên dưới */
 .st-log-box {
     width: 60%;             /* Chiếm 60% chiều rộng màn hình cho gọn */
-    min-width: 300px;
+    min-width: 500px;
     background: #dfe6e9;
     color: #2d3436;
     padding: 10px 20px;
@@ -1333,9 +1347,9 @@ input[type=range] {
 
 /* Khu vực vẽ cây Trie */
 .trie-canvas {
-    position: relative;
+    position: flex;
     width: 100%;
-    height: 400px;
+    height: 340px;
     background: #2d3436;
     border-radius: 8px;
     border: 1px solid #636e72;
@@ -1505,4 +1519,26 @@ input[type=range] {
     border-color: #55efc4; 
     transform: scale(1.1);
     box-shadow: 0 0 15px rgba(0, 184, 148, 0.5);
+}
+
+/* Chỉnh lại style cho các nút trong khu vực controls */
+.controls button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px; /* Bo góc tròn trịa */
+    background-color: var(--primary-color);
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Hiệu ứng khi hover và bấm vào nút */
+.controls button:hover {
+    background-color: #2563eb;
+    transform: translateY(-1px);
+}
+.controls button:active {
+    transform: translateY(1px); /* Nút lún xuống khi click */
 }

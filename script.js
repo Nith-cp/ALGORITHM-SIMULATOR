@@ -447,6 +447,31 @@ while (!pq.empty()) {
             { color: "#10b981", label: "Đã chốt (Done)" }
         ]
     },
+    { 
+        id: 30,
+        name: "Lowest Common Ancestor", 
+        category: "graph", 
+        desc: "Tìm tổ tiên chung gần nhất (LCA) của hai nút trong cây. Giải thuật: Đưa 2 nút về cùng độ sâu, sau đó cùng nhảy lên cha cho đến khi gặp nhau.",
+        time: "O(h)",    
+        space: "O(N)",   
+        code: `// C++ Implementation
+int getLCA(int u, int v) {
+    // 1. Cân bằng độ sâu
+    while (depth[u] > depth[v]) u = parent[u];
+    while (depth[v] > depth[u]) v = parent[v];
+    // 2. Cùng nhảy lên
+    while (u != v) {
+        u = parent[u];
+        v = parent[v];
+    }
+    return u;
+}`,
+        legend: [
+            { color: "#0984e3", label: "Nút U (Đang xét)" },
+            { color: "#e17055", label: "Nút V (Đang xét)" },
+            { color: "#00b894", label: "Kết quả (LCA)" }
+        ]
+    },
     {
     id: 90,
     name: "0/1 Knapsack (DP)",
@@ -1882,56 +1907,87 @@ function buildSegTreeLogic(node, start, end) {
         const mid = Math.floor((start + end) / 2);
         buildSegTreeLogic(2 * node, start, mid);
         buildSegTreeLogic(2 * node + 1, mid + 1, end);
-        stTree[node] = stTree[2 * node] + stTree[2 * node + 1];
+        
+        // Đọc chế độ từ hộp Select Box
+        const modeSelect = document.getElementById('seg-mode');
+        const mode = modeSelect ? modeSelect.value : 'sum';
+        
+        if (mode === 'min') {
+            stTree[node] = Math.min(stTree[2 * node], stTree[2 * node + 1]);
+        } else if (mode === 'max') {
+            stTree[node] = Math.max(stTree[2 * node], stTree[2 * node + 1]);
+        } else {
+            stTree[node] = stTree[2 * node] + stTree[2 * node + 1]; // Mặc định là Sum
+        }
     }
 }
-
 // 2. HÀM CHẠY VISUALIZER
 async function runSegmentTree() {
-    // Setup cơ bản
+    const n = stData.length;
+    
+    // --- FIX LỖI: Cập nhật lại cây theo mode Min/Max trước khi chạy ---
+    buildSegTreeLogic(1, 0, n - 1); 
+    for (let i = 1; i < stTree.length; i++) {
+        let valSpan = document.getElementById(`st-val-${i}`);
+        if(valSpan) {
+            valSpan.innerText = stTree[i];
+        }
+    }
+    // -----------------------------------------------------------------
+
+    // Setup trạng thái
     if(typeof isRunning !== 'undefined' && isRunning) { shouldKill = true; isRunning = false; await sleep(100); }
     const btnRun = document.getElementById('btn-run');
     const btnPause = document.getElementById('btn-pause');
-    const logBox = document.getElementById('st-log-box');
+    const logBox = document.getElementById('st-log-box'); // Bạn có thể đổi id tùy theo tên log box của bạn
 
     isRunning = true; isPaused = false; shouldKill = false;
     if(btnRun) btnRun.disabled = true;
     if(btnPause) { btnPause.disabled = false; btnPause.innerText = "Tạm dừng"; }
 
     // Reset Style cũ
-    document.querySelectorAll('.st-node').forEach(el => el.className = 'st-node');
+    document.querySelectorAll('.st-node').forEach(el => el.classList.remove('st-active', 'st-visited', 'st-disabled'));
     document.querySelectorAll('line').forEach(el => el.setAttribute('stroke', '#b2bec3'));
+    logBox.style.backgroundColor = "#dfe6e9";
 
-    // Tạo Query ngẫu nhiên
-    const n = stData.length;
+    // Random Query
     let qs = Math.floor(Math.random() * (n/2));
     let qe = Math.floor(Math.random() * (n/2)) + qs;
     if (qe >= n) qe = n - 1;
 
-    logBox.innerHTML = `Bắt đầu tính tổng đoạn [${qs}, ${qe}]`;
+    // Lấy chế độ
+    const modeSelect = document.getElementById('seg-mode');
+    const mode = modeSelect ? modeSelect.value : 'sum';
+    const modeName = mode === 'min' ? 'Min' : (mode === 'max' ? 'Max' : 'Tổng');
+
+    logBox.innerHTML = `Bắt đầu tìm <b>${modeName}</b> đoạn [${qs}, ${qe}]`;
     await sleep(1000);
 
-    // Hàm đệ quy Visual
+    // --- HÀM ĐỆ QUY TRUY VẤN ---
     async function query(node, l, r, qs, qe) {
         if(shouldKill) return 0;
         while(isPaused) { logBox.innerText = "Đang tạm dừng..."; await sleep(100); }
 
         let el = document.getElementById(`st-node-${node}`);
-        if(el) el.classList.add("st-active"); // Highlight node đang xét
+        if(el) el.classList.add("st-active"); 
 
         logBox.innerHTML = `Đang đứng tại Node [${l}, ${r}]...`;
         await sleep(600);
 
         // Case 1: Ngoài phạm vi
         if (r < qs || l > qe) {
-            logBox.innerHTML = `Node [${l}, ${r}] nằm ngoài đoạn [${qs}, ${qe}] → Trả về 0`;
+            logBox.innerHTML = `Node [${l}, ${r}] nằm ngoài đoạn [${qs}, ${qe}] → Bỏ qua`;
             if(el) {
                 el.classList.remove("st-active");
-                el.classList.add("st-disabled"); // Làm mờ
+                el.classList.add("st-disabled"); 
             }
             await sleep(600);
             if(el) el.classList.remove("st-disabled");
-            return 0;
+            
+            // FIX: Trả về giá trị vô hại tùy mode
+            if (mode === 'min') return Infinity;
+            if (mode === 'max') return -Infinity;
+            return 0; 
         }
 
         // Case 2: Trong phạm vi
@@ -1939,7 +1995,7 @@ async function runSegmentTree() {
             logBox.innerHTML = `Node [${l}, ${r}] nằm trọn trong đoạn tìm → Lấy giá trị ${stTree[node]}`;
             if(el) {
                 el.classList.remove("st-active");
-                el.classList.add("st-visited"); // Xanh lá
+                el.classList.add("st-visited");
             }
             await sleep(1000);
             return stTree[node];
@@ -1948,8 +2004,7 @@ async function runSegmentTree() {
         // Case 3: Giao nhau -> Chia đôi
         const mid = Math.floor((l + r) / 2);
         
-        // Highlight dây
-        let lineL = document.getElementById(`st-line-${node}-L`);
+        let lineL = document.getElementById(`st-line-${node}-L`); // Chú ý: sửa id line nếu code của bạn đặt id khác
         let lineR = document.getElementById(`st-line-${node}-R`);
         if(lineL) lineL.setAttribute('stroke', '#0984e3');
         if(lineR) lineR.setAttribute('stroke', '#0984e3');
@@ -1958,20 +2013,26 @@ async function runSegmentTree() {
         await sleep(800);
 
         let p1 = await query(2 * node, l, mid, qs, qe);
-        while(isPaused) { await sleep(100); } // Check pause giữa 2 lần gọi
+        while(isPaused) { await sleep(100); } 
         let p2 = await query(2 * node + 1, mid + 1, r, qs, qe);
 
         if(el) el.classList.remove("st-active");
         if(lineL) lineL.setAttribute('stroke', '#b2bec3');
         if(lineR) lineR.setAttribute('stroke', '#b2bec3');
 
+        // FIX: Gộp kết quả dựa trên mode
+        if (mode === 'min') return Math.min(p1, p2);
+        if (mode === 'max') return Math.max(p1, p2);
         return p1 + p2;
     }
 
-    let total = await query(1, 0, n - 1, qs, qe);
+    let result = await query(1, 0, n - 1, qs, qe);
+    
+    // Nếu mảng rỗng hoặc lỗi, Infinity được chuyển thành text để không bị xấu
+    if (result === Infinity || result === -Infinity) result = "Không có";
 
-    logBox.innerHTML = `Kết quả: Tổng đoạn [${qs}, ${qe}] = ${total}`;
-    logBox.style.backgroundColor = "#55efc4"; // Highlight kết quả bảng log
+    logBox.innerHTML = `<b>Hoàn tất! ${modeName} đoạn [${qs}, ${qe}] = ${result}</b>`;
+    logBox.style.backgroundColor = "#55efc4"; 
     
     isRunning = false;
     if(btnRun) btnRun.disabled = false;
@@ -4073,143 +4134,130 @@ async function runDijkstra() {
     if(btnPause) btnPause.disabled = true;
 }
 // --- LCA ---
+// --- LCA ---
+let lcaAdj = [];      
+let lcaNodes = [];    
+let lcaParent = [];    
+let lcaDepth = [];     
 function generateLCAUI() {
     const container = document.getElementById('visualizer-container');
     container.innerHTML = '';
-    
-    // 1. SINH CẤU TRÚC CÂY (Giữ nguyên logic của bạn)
-    const n = Math.floor(Math.random() * 4) + 6; 
+    const positions = [
+        {x: 300, y: 50},  
+        {x: 180, y: 180}, 
+        {x: 420, y: 180}, 
+        {x: 100, y: 320},
+        {x: 260, y: 320}, 
+        {x: 360, y: 320}, 
+        {x: 500, y: 320}, 
+        {x: 60,  y: 450}  
+    ];
+    let nodeIDs = [0, 1, 2, 3, 4, 5, 6, 7];
+    nodeIDs.sort(() => Math.random() - 0.5); 
+    let activeMap = {}; 
+    activeMap[0] = nodeIDs[0]; 
+    activeMap[1] = nodeIDs[1]; 
+    activeMap[2] = nodeIDs[2]; 
+    for(let i=3; i<=7; i++) {
+        if(Math.random() > 0.3) { 
+            activeMap[i] = nodeIDs[i];
+        }
+    }
+    if(!activeMap[3]) delete activeMap[7];
+    const n = 8;
     lcaAdj = Array.from({length: n}, () => []);
     lcaParent = new Array(n).fill(-1);
     lcaDepth = new Array(n).fill(0);
-
-    for (let i = 1; i < n; i++) {
-        let parent = Math.floor(Math.random() * i); 
-        lcaAdj[parent].push(i);
-        lcaParent[i] = parent;
-        lcaDepth[i] = lcaDepth[parent] + 1;
-    }
-
-    // ==========================================
-    // 2. TÍNH TOÁN ĐỘ CAO ĐỂ CĂN GIỮA CHIỀU DỌC
-    // ==========================================
-    const svgWidth = 600;
-    const svgHeight = 520; // Khớp với height của layout
-    const levelHeight = 90;
-    const maxDepth = Math.max(...lcaDepth);
-    const treeTotalHeight = maxDepth * levelHeight;
-    
-    // Tính startY để "cục" node nằm giữa theo chiều dọc
-    // Nếu cây thấp, nó sẽ tự đẩy xuống giữa. Nếu cây cao, nó sẽ bắt đầu từ 60px
-    const startY = Math.max(60, (svgHeight - treeTotalHeight) / 2);
-
-    let positions = new Array(n);
-    let depthCount = {}; 
-    let depthIndex = {}; 
-
-    for (let i = 0; i < n; i++) {
-        let d = lcaDepth[i];
-        if (!depthCount[d]) { depthCount[d] = 0; depthIndex[d] = 0; }
-        depthCount[d]++;
-    }
-
-    for (let i = 0; i < n; i++) {
-        let d = lcaDepth[i];
-        let count = depthCount[d];
-        let idx = depthIndex[d]++;
-
-        let spacingX = svgWidth / (count + 1);
-        let baseX = spacingX * (idx + 1);
-        
-        let randomJitterX = (Math.random() - 0.5) * 40;
-        let randomJitterY = (Math.random() - 0.5) * 15;
-
-        positions[i] = {
-            x: Math.max(40, Math.min(svgWidth - 40, baseX + randomJitterX)),
-            y: startY + (d * levelHeight) + randomJitterY
-        };
-    }
-
-    let displayIDs = Array.from({length: n}, (_, i) => i);
-    displayIDs.sort(() => Math.random() - 0.5);
-
-    // 3. VẼ EDGES VÀ NODES
+    lcaNodes = []; 
+    const visualEdges = [
+        {p: 0, c: 1}, {p: 0, c: 2}, 
+        {p: 1, c: 3}, {p: 1, c: 4}, 
+        {p: 2, c: 5}, {p: 2, c: 6},
+        {p: 3, c: 7}              
+    ];
     let edgesHTML = "";
-    for (let i = 1; i < n; i++) {
-        let p = lcaParent[i];
-        const p1 = positions[p];
-        const p2 = positions[i];
-        const pEnd = (typeof getPointAtRadius === 'function') ? getPointAtRadius(p1, p2, 22) : p2;
-        
-        edgesHTML += `
-            <line id="lca-edge-${displayIDs[p]}-${displayIDs[i]}" 
-                  x1="${p1.x}" y1="${p1.y}" x2="${pEnd.x}" y2="${pEnd.y}" 
-                  stroke="#b2bec3" stroke-width="2" marker-end="url(#arrowhead-lca)" />
-        `;
+    visualEdges.forEach(edge => {
+        if (activeMap[edge.p] !== undefined && activeMap[edge.c] !== undefined) {
+            let u = activeMap[edge.p]; 
+            let v = activeMap[edge.c]; 
+            lcaAdj[u].push(v);
+            lcaParent[v] = u;
+            const p1 = positions[edge.p];
+            const p2 = positions[edge.c];
+            const pEnd = getPointAtRadius(p1, p2, 22);
+            edgesHTML += `
+                <line id="lca-edge-${u}-${v}" 
+                      x1="${p1.x}" y1="${p1.y}" x2="${pEnd.x}" y2="${pEnd.y}" 
+                      stroke="#b2bec3" stroke-width="2" />
+            `;
+        }
+    });
+    let rootReal = activeMap[0];
+    let queue = [{u: rootReal, d: 0}];
+    lcaDepth[rootReal] = 0;
+    while(queue.length > 0) {
+        let curr = queue.shift();
+        for(let child of lcaAdj[curr.u]) {
+            lcaDepth[child] = curr.d + 1;
+            queue.push({u: child, d: curr.d + 1});
+        }
     }
-
     let nodesHTML = "";
     let validOptions = []; 
-    for(let i = 0; i < n; i++) {
-        let realID = displayIDs[i];
-        let pos = positions[i];
-        validOptions.push(realID);
-        nodesHTML += `
-            <g transform="translate(${pos.x}, ${pos.y})">
-                <circle id="lca-node-circle-${realID}" r="22" fill="#636e72" stroke="#b2bec3" stroke-width="2" />
-                <text x="0" y="6" text-anchor="middle" fill="white" font-weight="bold" font-size="16" style="pointer-events: none;">${realID}</text>
-                <text x="28" y="5" fill="#dfe6e9" font-size="15" font-style="italic">d=${lcaDepth[i]}</text>
-            </g>
-        `;
+    for(let i=0; i<8; i++) {
+        if(activeMap[i] !== undefined) {
+            let realID = activeMap[i];
+            let pos = positions[i];
+            validOptions.push(realID);
+            nodesHTML += `
+                <g transform="translate(${pos.x}, ${pos.y})">
+                    <circle id="lca-node-circle-${realID}" r="22" fill="#636e72" stroke="#b2bec3" stroke-width="2" />
+                    <text x="0" y="6" text-anchor="middle" fill="white" font-weight="bold" font-size="16" style="pointer-events: none;">${realID}</text>
+                    <text x="28" y="5" fill="#dfe6e9" font-size="15" font-style="italic">d=${lcaDepth[realID]}</text>
+                </g>
+            `;
+        }
     }
-    
     validOptions.sort((a,b) => a - b);
     const optionsHTML = validOptions.map(id => `<option value="${id}">Node ${id}</option>`).join('');
-
-    // ==========================================
-    // 4. CHỈNH SỬA LAYOUT ĐỂ CĂN GIỮA TUYỆT ĐỐI
-    // ==========================================
-    // Tìm đoạn container.innerHTML trong hàm generateLCAUI()
-container.innerHTML = `
-    <div class="lca-layout" style="display: flex; gap: 8px; height: 400px; width: 100%; align-items: stretch; padding: 2px;"> 
-        
-        <div class="graph-area" style="flex: 1; background: #2d3436; border-radius: 8px; border: 1px solid #636e72; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-            <svg width="100%" height="100%" viewBox="0 0 600 520" preserveAspectRatio="xMidYMid meet">
-                <defs>
-                    <marker id="arrowhead-lca" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                        <polygon points="0 0, 10 3.5, 0 7" fill="#b2bec3" />
-                    </marker>
-                </defs>
-                ${edgesHTML}
-                ${nodesHTML}
-            </svg>
-        </div>
-
-        <div class="lca-sidebar" style="width: 150px; display: flex; flex-direction: column; gap: 6px; padding: 8px; background: #2d3436; border: 1px solid #636e72; border-radius: 8px; box-sizing: border-box;">
-            
-            <h4 style="color:#74b9ff; text-align:center; margin: 0; border-bottom:1px solid #555; padding-bottom:4px; font-size: 13px;">LCA Control</h4>
-            
-            <div style="display: flex; flex-direction: column; gap: 2px;">
-                <label style="color:#dfe6e9; font-size: 11px;">Chọn Node U:</label>
-                <select id="lca-select-u" style="width:100%; padding:2px 4px; border-radius:4px; background:#444; color:white; border:1px solid #666; font-size:12px; cursor: pointer;">${optionsHTML}</select>
-            </div>
-            
-            <div style="display: flex; flex-direction: column; gap: 2px;">
-                <label style="color:#dfe6e9; font-size: 11px;">Chọn Node V:</label>
-                <select id="lca-select-v" style="width:100%; padding:2px 4px; border-radius:4px; background:#444; color:white; border:1px solid #666; font-size:12px; cursor: pointer;">${optionsHTML}</select>
+    container.innerHTML = `
+        <div class="lca-layout" style="display: flex; gap: 10px; height: 400px; width: 100%;"> 
+            <div class="graph-area" style="flex: 2.5; background: #2d3436; border-radius: 8px; border: 1px solid #636e72; position: relative;">
+                <svg width="100%" height="100%" viewBox="0 0 600 520" preserveAspectRatio="xMidYMid meet">
+                    <defs>
+                        <marker id="arrowhead-lca" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#b2bec3" />
+                        </marker>
+                    </defs>
+                    ${edgesHTML}
+                    ${nodesHTML}
+                </svg>
             </div>
 
-            <div id="lca-info" style="flex:1; background:rgba(0,0,0,0.3); color:#fdcb6e; padding:6px; border-radius:5px; font-size:11px; overflow-y: auto; line-height: 1.3; border: 1px solid #444; margin-top: 2px;">
-                Đã sẵn sàng.
+<div class="lca-sidebar" style="flex: 1; display: flex; flex-direction: column; gap: 15px; padding: 10px; background: #2d3436; border: 1px solid #636e72; border-radius: 8px;">                <h4 style="color:#74b9ff; text-align:center; margin:0; border-bottom:1px solid #555; padding-bottom:10px;">LCA Control</h4>
+                
+                <div>
+                    <label style="color:#dfe6e9; font-size:13px;">Chọn Node U:</label>
+                    <select id="lca-select-u" style="width:100%; padding:5px; margin-top:5px;">${optionsHTML}</select>
+                </div>
+                
+                <div>
+                    <label style="color:#dfe6e9; font-size:13px;">Chọn Node V:</label>
+                    <select id="lca-select-v" style="width:100%; padding:5px; margin-top:5px;">${optionsHTML}</select>
+                </div>
+
+                <div id="lca-info" style="flex:1; background:#00000030; color:#fdcb6e; padding:10px; border-radius:5px; font-size:13px; overflow-y: auto;">
+                    Đã tạo dữ liệu ngẫu nhiên.<br>Chọn U, V rồi bấm "Chạy".
+                </div>
             </div>
         </div>
-    </div>
-`;
-    // Reset lại giá trị Select ngẫu nhiên
+    `;
     if(validOptions.length >= 2) {
         let rand1 = validOptions[Math.floor(Math.random() * validOptions.length)];
         let rand2 = validOptions[Math.floor(Math.random() * validOptions.length)];
-        while(rand1 === rand2) rand2 = validOptions[Math.floor(Math.random() * validOptions.length)];
+        while(rand1 === rand2) {
+             rand2 = validOptions[Math.floor(Math.random() * validOptions.length)];
+        }
         document.getElementById('lca-select-u').value = rand1;
         document.getElementById('lca-select-v').value = rand2;
     }
